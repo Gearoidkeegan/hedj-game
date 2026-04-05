@@ -1,0 +1,292 @@
+// BoardAI — personality-driven board reactions with CEO personas
+// Selects contextual dialogue based on quarter performance, player behaviour, and board member personality
+
+import { gameState } from './GameState.js';
+import { GAME_CONFIG } from '../utils/constants.js';
+
+class BoardAIController {
+    constructor() {
+        this.dialogueData = null;
+        this.ceoPersona = null;    // Current game's CEO persona id
+    }
+
+    /**
+     * Load dialogue data. Call once at app startup.
+     */
+    async loadDialogue(basePath = 'data') {
+        try {
+            const resp = await fetch(`${basePath}/board-dialogue.json`);
+            this.dialogueData = await resp.json();
+            console.log('BoardAI: dialogue loaded');
+        } catch (e) {
+            console.warn('BoardAI: could not load dialogue', e);
+        }
+    }
+
+    /**
+     * Assign a random CEO persona for this game.
+     */
+    assignCEOPersona(rng) {
+        const personas = ['jameson', 'musk', 'oleary', 'dimon', 'buffett'];
+        this.ceoPersona = rng.pick(personas);
+        return this.ceoPersona;
+    }
+
+    /**
+     * Get the CEO persona info.
+     */
+    getCEOPersona() {
+        if (!this.dialogueData || !this.ceoPersona) return null;
+        return this.dialogueData.ceoPersonas[this.ceoPersona] || null;
+    }
+
+    /**
+     * Generate board feedback for the current quarter.
+     * Returns an array of { member, lines[], satisfactionDelta } objects.
+     */
+    generateFeedback() {
+        const state = gameState.get();
+        const result = state.quarterlyResults[state.quarterlyResults.length - 1];
+        if (!result) return [];
+
+        const feedback = [];
+        const boardMembers = state.industry?.boardMembers || [];
+
+        for (const member of boardMembers) {
+            const lines = this.getMemberLines(member, result, state);
+            const delta = this.calculateSatisfactionDelta(member, result, state);
+            feedback.push({
+                member,
+                lines,
+                satisfactionDelta: delta
+            });
+        }
+
+        // CEO special appearance (every 2-4 quarters, or on big events)
+        const ceoAppearance = this.shouldCEOAppear(result, state);
+        if (ceoAppearance) {
+            feedback.push({
+                member: {
+                    role: 'CEO (Special)',
+                    name: this.getCEODisplayName(),
+                    personality: 'ceo',
+                    title: 'Chief Executive Officer'
+                },
+                lines: ceoAppearance,
+                satisfactionDelta: 0
+            });
+        }
+
+        return feedback;
+    }
+
+    /**
+     * Get dialogue lines for a board member based on context.
+     */
+    getMemberLines(member, result, state) {
+        const personality = member.personality;
+        const pool = this.dialogueData?.[personality];
+        if (!pool) return [this.fallbackLine(member, result)];
+
+        const lines = [];
+        const rng = gameState.getRng();
+
+        // Primary reaction: P&L outcome
+        const pnlCategory = this.getPnLCategory(result);
+        const pnlPool = pool[`${pnlCategory}_pnl`] || [];
+        if (pnlPool.length > 0) {
+            lines.push(rng.pick(pnlPool));
+        }
+
+        // Secondary reactions based on player behaviour
+        if (state.tradesThisQuarter > 3 && pool.overtrading) {
+            lines.push(rng.pick(pool.overtrading));
+        }
+
+        if (state.tradeDirectionErrors > 0 && pool.trade_direction_error) {
+            // Only mention if error happened this quarter
+            const prevErrors = state.quarterlyResults.length > 1
+                ? (state.quarterlyResults[state.quarterlyResults.length - 2]?.tradeDirectionErrors || 0)
+                : 0;
+            if (state.tradeDirectionErrors > prevErrors) {
+                lines.push(rng.pick(pool.trade_direction_error));
+            }
+        }
+
+        if (result.marginCallAmount > 0 && pool.margin_call) {
+            lines.push(rng.pick(pool.margin_call));
+        }
+
+        // Check for option usage — board reacts to premium cost
+        const hasOptions = state.hedgePortfolio.some(h =>
+            h.status === 'active' && (h.productType === 'option' || h.productType === 'cap') && h.premiumPaid > 0
+        );
+        if (hasOptions && pool.option_premium && rng.chance(0.4)) {
+            lines.push(rng.pick(pool.option_premium));
+        }
+
+        // Policy violations
+        if (state.policyViolations > 0 && pool.policy_violation) {
+            const justViolated = !this.wasInComplianceLastQuarter(state);
+            if (justViolated) {
+                lines.push(rng.pick(pool.policy_violation));
+            }
+        }
+
+        // Over-hedging criticism (>100%)
+        const maxHedgeRatio = state.exposures.reduce((maxR, exp) => {
+            const hedged = state.hedgePortfolio
+                .filter(h => h.underlying === exp.underlying && h.status === 'active')
+                .reduce((sum, h) => sum + h.notional, 0);
+            const ratio = exp.quarterlyNotional > 0 ? hedged / exp.quarterlyNotional : 0;
+            return Math.max(maxR, ratio);
+        }, 0);
+        if (maxHedgeRatio > 1.0) {
+            const overhedgeLines = pool.overhedging || [
+                "You're over-hedged. That's speculation, not hedging.",
+                "Why are we hedged more than 100%? Are you running a prop desk?",
+                "Over-hedging creates risk, it doesn't reduce it. Fix this.",
+                "The policy says hedge our exposure, not take new positions."
+            ];
+            lines.push(rng.pick(overhedgeLines));
+        }
+
+        // Limit to 2 lines max per member (keep it punchy)
+        return lines.slice(0, 2);
+    }
+
+    /**
+     * Determine P&L category for dialogue selection.
+     */
+    getPnLCategory(result) {
+        const netPnL = result.netPnL || 0;
+        const state = gameState.get();
+        const revenue = state.industry?.annualRevenue || 1e9;
+        const threshold = revenue * 0.005; // 0.5% of annual revenue
+
+        if (netPnL > threshold) return 'good';
+        if (netPnL < -threshold) return 'bad';
+        return 'neutral';
+    }
+
+    /**
+     * Calculate satisfaction change from this board member.
+     */
+    calculateSatisfactionDelta(member, result, state) {
+        let delta = 0;
+        const pnlCategory = this.getPnLCategory(result);
+
+        // Base delta from P&L
+        switch (pnlCategory) {
+            case 'good':
+                delta += member.personality === 'aggressive' ? 2 : member.personality === 'cautious' ? 3 : 1;
+                break;
+            case 'bad':
+                delta += member.personality === 'aggressive' ? -5 : member.personality === 'cautious' ? -3 : -2;
+                break;
+            case 'neutral':
+                delta += member.personality === 'aggressive' ? -1 : 0;
+                break;
+        }
+
+        // Modifiers
+        if (result.marginCallAmount > 0) delta -= 3;
+        if (state.tradesThisQuarter > 3) delta -= 1;
+        if (state.tradeDirectionErrors > 0) delta -= 2;
+
+        // Policy compliance bonus
+        if (this.wasInComplianceLastQuarter(state)) delta += 1;
+
+        // Clamp
+        return Math.max(GAME_CONFIG.SATISFACTION_LOSS_MAX / 3, Math.min(GAME_CONFIG.SATISFACTION_GAIN_MAX / 3, delta));
+    }
+
+    /**
+     * Determine if CEO should make a special appearance.
+     */
+    shouldCEOAppear(result, state) {
+        if (!this.dialogueData?.ceo_special || !this.ceoPersona) return null;
+
+        const ceoPool = this.dialogueData.ceo_special[this.ceoPersona];
+        if (!ceoPool) return null;
+
+        const rng = gameState.getRng();
+        const revenue = state.industry?.annualRevenue || 1e9;
+        const bigThreshold = revenue * 0.01; // 1% of revenue
+
+        // CEO appears on big swings or periodically
+        if (Math.abs(result.netPnL) > bigThreshold) {
+            const category = result.netPnL > 0 ? 'big_win' : 'big_loss';
+            return [rng.pick(ceoPool[category] || ceoPool.general)];
+        }
+
+        // Periodic appearance (~every 3 quarters)
+        if (state.totalQuartersPlayed > 0 && state.totalQuartersPlayed % 3 === 0) {
+            return [rng.pick(ceoPool.general)];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get CEO display name based on persona.
+     */
+    getCEODisplayName() {
+        const names = {
+            'jameson': 'J.J. Jameson',
+            'musk': 'ElonUsk',
+            'oleary': "Michael O'Scary",
+            'dimon': 'Jamie Diamond',
+            'buffett': 'Warren Biscuit'
+        };
+        return names[this.ceoPersona] || 'The CEO';
+    }
+
+    wasInComplianceLastQuarter(state) {
+        const totalQ = state.totalQuartersPlayed || 0;
+        const inCompliance = state.totalQuartersInCompliance || 0;
+        // If all quarters so far were in compliance
+        return inCompliance >= totalQ;
+    }
+
+    /**
+     * Fallback line when no dialogue data loaded.
+     */
+    fallbackLine(member, result) {
+        const pnl = result?.netPnL || 0;
+        if (pnl > 0) return "Acceptable quarter. Keep it up.";
+        if (pnl < 0) return "Disappointing numbers. We expect better.";
+        return "Hmm. Let's see what next quarter brings.";
+    }
+
+    /**
+     * Get stress level (0-100) for the Doom face HUD.
+     * Higher = more stressed.
+     */
+    getStressLevel() {
+        const state = gameState.get();
+        let stress = 0;
+
+        // Inverse of board satisfaction (0-40 points)
+        stress += Math.max(0, (100 - state.boardSatisfaction) * 0.4);
+
+        // Margin calls (10 points each)
+        stress += Math.min(30, state.marginCallCount * 10);
+
+        // Trade direction errors (15 points each)
+        stress += Math.min(30, (state.tradeDirectionErrors || 0) * 15);
+
+        // Negative P&L streak
+        const recentResults = state.quarterlyResults.slice(-3);
+        const lossStreak = recentResults.filter(r => r.netPnL < 0).length;
+        stress += lossStreak * 8;
+
+        // Cash pressure
+        if (state.cashBalance < state.startingCash * 0.15) stress += 15;
+
+        return Math.min(100, Math.max(0, Math.round(stress)));
+    }
+}
+
+// Singleton
+export const boardAI = new BoardAIController();

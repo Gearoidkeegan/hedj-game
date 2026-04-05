@@ -1,0 +1,320 @@
+/* ============================================
+   Responsive / Mobile / Tablet
+   ============================================ */
+
+/* Scale the game viewport to fit smaller screens */
+@media (max-width: 980px) {
+    #game-viewport {
+        width: 100vw;
+        height: 100vh;
+        border: none;
+        border-radius: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        transform: none;
+    }
+}
+
+/* Tablet — convention iPads (768-1024px) */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .industry-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+
+    .modal {
+        min-width: 360px !important;
+        max-width: 90vw;
+    }
+
+    /* Slightly larger touch targets */
+    .btn {
+        min-height: 44px;
+    }
+
+    .event-choice-btn {
+        min-height: 52px;
+        padding: 10px 14px;
+    }
+
+    /* Career progress pips fit tablet width */
+    .career-progress {
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    /* Score breakdown */
+    .score-breakdown {
+        max-width: 480px;
+    }
+}
+
+/* Mobile / small tablet */
+@media (max-width: 768px) {
+    :root {
+        --game-width: 100vw;
+        --game-height: 100vh;
+    }
+
+    /* Stack dashboard layout vertically */
+    .dashboard-main {
+        flex-direction: column;
+    }
+
+    .dashboard-right {
+        width: 100%;
+        max-height: 40%;
+    }
+
+    .isometric-viewport {
+        height: 120px;
+    }
+
+    /* Larger touch targets */
+    .btn {
+        min-height: 48px;
+        font-size: 11px;
+    }
+
+    .industry-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .board-members {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .board-member {
+        max-width: 100%;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .extend-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .extend-buttons .btn {
+        width: 100%;
+    }
+
+    .gameover-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .gameover-buttons .btn {
+        width: 100%;
+    }
+
+    /* Reduce font sizes for mobile */
+    h1 { font-size: 14px; }
+    h2 { font-size: 11px; }
+
+    .title-logo h1 {
+        font-size: 16px;
+    }
+
+    .quarter-bar {
+        font-size: 8px;
+        padding: 4px 8px;
+    }
+
+    /* Event screen — stack choices vertically */
+    .event-choices {
+        flex-direction: column !important;
+    }
+
+    .event-choice-btn {
+        width: 100%;
+        min-height: 52px;
+    }
+
+    /* Era popups — fit mobile width */
+    .era-fax,
+    .era-outlook,
+    .era-blackberry,
+    .era-slack,
+    .era-teams {
+        max-width: 95vw !important;
+        font-size: 14px;
+    }
+
+    /* Level complete screen */
+    .career-progress {
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+    }
+
+    .career-pip {
+        min-width: 50px;
+        font-size: 8px;
+    }
+
+    /* Modals — full width on mobile */
+    .modal {
+        min-width: auto !important;
+        width: 95vw;
+        max-width: 95vw;
+    }
+
+    .modal-body {
+        max-height: 60vh !important;
+    }
+
+    /* Score breakdown rows */
+    .score-row {
+        gap: 4px;
+    }
+
+    .score-label {
+        font-size: 7px !important;
+        min-width: 80px;
+    }
+
+    /* Share text — smaller */
+    #share-text {
+        font-size: 12px !important;
+    }
+
+    /* Attract mode */
+    .attract-overlay {
+        padding: 16px;
+    }
+
+    .attract-content {
+        max-width: 90vw;
+    }
+
+    /* Character select */
+    .character-select {
+        gap: 8px;
+    }
+
+    .char-btn {
+        min-width: 80px;
+        min-height: 48px;
+    }
+
+    /* Hedge ladder — scroll horizontally if needed */
+    .hedge-ladder-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Bloomberg terminal — reduce size on mobile */
+    .bloomberg-terminal {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 120px !important;
+    }
+
+    /* Setup screen panels */
+    .setup-screen .panel {
+        max-width: 100%;
+    }
+}
+
+/* Very small phones */
+@media (max-width: 400px) {
+    .title-logo h1 {
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .title-menu {
+        min-width: 240px;
+        gap: 8px;
+    }
+
+    .title-menu .btn {
+        padding: 8px 16px;
+    }
+
+    .panel {
+        padding: 6px !important;
+    }
+
+    .readable-text {
+        font-size: 14px !important;
+    }
+}
+
+/* Large screens / convention displays */
+@media (min-width: 1200px) {
+    #game-viewport {
+        width: 1024px;
+        height: 680px;
+    }
+}
+
+/* Very large screens - scale up */
+@media (min-width: 1600px) {
+    #game-viewport {
+        transform: translate(-50%, -50%) scale(1.2);
+    }
+}
+
+/* Touch device optimisations */
+@media (pointer: coarse) {
+    .btn {
+        min-height: 44px;
+    }
+
+    .event-choice-btn {
+        min-height: 52px;
+        padding: 10px 14px;
+    }
+
+    /* Prevent text selection on game elements */
+    .screen {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    /* Allow selection on share text */
+    #share-text {
+        -webkit-user-select: all;
+        user-select: all;
+    }
+
+    /* Disable hover effects on touch */
+    .btn:hover {
+        transform: none;
+    }
+}
+
+/* Landscape phone — restrict height */
+@media (max-height: 500px) and (orientation: landscape) {
+    .title-logo {
+        margin-bottom: 8px;
+    }
+
+    .title-logo h1 {
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    .title-menu {
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .title-mode-info {
+        display: none;
+    }
+
+    .summary-screen {
+        padding-top: 4px;
+    }
+
+    .gameover-grade {
+        font-size: 32px;
+    }
+}
