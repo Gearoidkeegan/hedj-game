@@ -11,8 +11,8 @@ class GameLoopController {
     }
 
     // Start a new game
-    startGame({ playerName, industry, hedgingPolicy, seed }) {
-        gameState.initGame({ playerName, industry, hedgingPolicy, seed });
+    startGame({ playerName, industry, hedgingPolicy, seed, playerGender, companyName, contactEmail }) {
+        gameState.initGame({ playerName, industry, hedgingPolicy, seed, playerGender, companyName, contactEmail });
         this.setPhase(PHASE.DECISION);
     }
 

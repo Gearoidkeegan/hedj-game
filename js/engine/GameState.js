@@ -90,7 +90,7 @@ class GameStateManager {
     }
 
     // Initialize a new game
-    initGame({ playerName, industry, hedgingPolicy, seed }) {
+    initGame({ playerName, industry, hedgingPolicy, seed, playerGender, companyName, contactEmail }) {
         const gameSeed = seed || generateSeed();
         this.rng = new SeededRandom(gameSeed);
 
@@ -113,6 +113,9 @@ class GameStateManager {
             seed: gameSeed,
             startedAt: Date.now(),
             playerName,
+            playerGender: playerGender || 'male',
+            companyName: companyName || '',
+            contactEmail: contactEmail || '',
             industry,
             industryId: industry.id,
             startYear,

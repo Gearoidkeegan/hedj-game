@@ -230,19 +230,18 @@ export class SetupScreen {
         // Assign random hedging policy
         const hedgingPolicy = rng.pick(HEDGING_POLICY_TYPES);
 
+        // Capture extra fields before startGame, because startGame triggers
+        // the dashboard screen transition and StressFace reads gender on mount
+        const selectedGender = this.el.querySelector('.char-btn.selected')?.dataset.gender || 'male';
+
         gameLoop.startGame({
             playerName: playerName || 'Treasury Manager',
             industry,
             hedgingPolicy,
-            seed
-        });
-
-        // Store extra fields in state
-        const selectedGender = this.el.querySelector('.char-btn.selected')?.dataset.gender || 'male';
-        gameState.update({
+            seed,
+            playerGender: selectedGender,
             companyName,
-            contactEmail,
-            playerGender: selectedGender
+            contactEmail
         });
 
         if (isCareer) {
