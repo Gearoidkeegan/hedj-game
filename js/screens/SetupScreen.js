@@ -63,11 +63,11 @@ export class SetupScreen {
                         <label>CHARACTER</label>
                         <div class="character-select" id="character-select">
                             <button class="char-btn selected" data-gender="male" title="Male">
-                                <span class="char-icon">👔</span>
+                                <span class="char-icon"><svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="5" r="3.5" fill="#e8d0b8" stroke="#2a3a5a" stroke-width="1"/><rect x="3" y="1" width="12" height="3" rx="1" fill="#3a2a1a"/><rect x="5" y="10" width="8" height="7" rx="1" fill="#4070a0" stroke="#2a3a5a" stroke-width="0.8"/><rect x="7" y="10" width="4" height="2" fill="#e0e8f0"/></svg></span>
                                 <span class="char-label">Male</span>
                             </button>
                             <button class="char-btn" data-gender="female" title="Female">
-                                <span class="char-icon">👩‍💼</span>
+                                <span class="char-icon"><svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="5" r="3.5" fill="#e8d0b8" stroke="#2a3a5a" stroke-width="1"/><path d="M4 2 Q9 0 14 2 L14 5 Q14 8 12 8 L6 8 Q4 8 4 5 Z" fill="#4a2a1a"/><rect x="5" y="10" width="8" height="7" rx="1" fill="#a05070" stroke="#2a3a5a" stroke-width="0.8"/><rect x="7" y="10" width="4" height="2" fill="#e0e8f0"/></svg></span>
                                 <span class="char-label">Female</span>
                             </button>
                         </div>

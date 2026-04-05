@@ -247,14 +247,83 @@ export class DashboardScreen {
         // Start Bloomberg terminal for currently selected exposure (or first)
         this.startBloombergForExposure();
 
-        // Periodically refresh trade preview with live pricing
+        // Periodically refresh trade preview and exposure rates with live pricing
         this.priceRefreshTimer = setInterval(() => {
+            this.updateLivePrices();
             if (this.selectedExposure && this.hedgeLadder) {
                 this.renderTradePreview();
             }
         }, 500);
 
         this.app.showToast('Quarter started — markets are live!', 'info');
+    }
+
+    /**
+     * Update displayed rates on exposure list and market view with live Bloomberg prices.
+     * Called every 500ms during active quarter so prices visibly fluctuate.
+     */
+    updateLivePrices() {
+        if (!this.quarterStarted || !this.bloombergTerminal) return;
+
+        const livePrice = this.bloombergTerminal.getCurrentPrice();
+        if (!livePrice || livePrice <= 0) return;
+
+        const underlying = this.bloombergTerminal.underlying;
+        if (!underlying) return;
+
+        // Update the rate shown in the exposure list row for this underlying
+        const expRow = this.el.querySelector(`.exposure-row[data-underlying="${underlying}"]`);
+        if (expRow) {
+            const state = gameState.get();
+            const exp = state.exposures.find(e => e.underlying === underlying);
+            if (exp) {
+                const budgetRate = state.budgetRates[underlying] || 0;
+                const decimals = exp.type === 'ir' ? 4 : (exp.underlying.includes('JPY') ? 2 : 4);
+                const rateClass = exp.direction === 'buy'
+                    ? (livePrice <= budgetRate ? 'pnl-positive' : 'pnl-negative')
+                    : (livePrice >= budgetRate ? 'pnl-positive' : 'pnl-negative');
+                const rateSpan = expRow.querySelector('.exposure-detail + span span');
+                if (rateSpan) {
+                    rateSpan.className = rateClass;
+                    rateSpan.textContent = formatRate(livePrice, decimals);
+                }
+            }
+        }
+
+        // Update market view table if visible
+        const marketTable = this.el.querySelector('#market-view table');
+        if (marketTable) {
+            const rows = marketTable.querySelectorAll('tbody tr');
+            const state = gameState.get();
+            for (const row of rows) {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 4 && cells[0].textContent.includes(underlying)) {
+                    const exp = state.exposures.find(e => e.underlying === underlying);
+                    if (exp) {
+                        const decimals = exp.type === 'ir' ? 4 : (exp.underlying.includes('JPY') ? 2 : 4);
+                        const budget = state.budgetRates[underlying] || 0;
+                        const diff = budget > 0 ? (livePrice - budget) / budget : 0;
+                        cells[1].textContent = formatRate(livePrice, decimals);
+                        cells[3].textContent = `${(diff * 100).toFixed(2)}%`;
+                        cells[3].className = diff >= 0 ? 'pnl-positive' : 'pnl-negative';
+                    }
+                }
+            }
+        }
+
+        // Update direction test bid/ask if shown and matching current exposure
+        if (this.selectedExposure && this.selectedExposure.underlying === underlying && !this.tradeDirectionConfirmed) {
+            const dirContainer = this.el.querySelector('#direction-test');
+            if (dirContainer && dirContainer.style.display !== 'none') {
+                const exp = this.selectedExposure;
+                const spreadBps = exp.type === 'fx' ? 5 : exp.type === 'commodity' ? 10 : 3;
+                const halfSpread = livePrice * (spreadBps / 10000);
+                const buyBtn = dirContainer.querySelector('#btn-direction-buy');
+                const sellBtn = dirContainer.querySelector('#btn-direction-sell');
+                if (buyBtn) buyBtn.textContent = `BUY @ ${formatRate(livePrice + halfSpread, 4)}`;
+                if (sellBtn) sellBtn.textContent = `SELL @ ${formatRate(livePrice - halfSpread, 4)}`;
+            }
+        }
     }
 
     calculateEndOfQuarterRates() {

@@ -598,15 +598,120 @@ export class IsometricScene {
         ctx.stroke();
     }
 
+    // Fuel tank (cylindrical storage)
+    fuelTank(ctx, x, y, radius = 10, height = 8) {
+        const c = this.colors;
+        // Body
+        ctx.fillStyle = '#c8ccd0';
+        ctx.fillRect(x - radius, y - height, radius * 2, height);
+        ctx.strokeStyle = c.outline;
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(x - radius, y - height, radius * 2, height);
+        // Top ellipse
+        ctx.fillStyle = '#d8dce0';
+        ctx.beginPath();
+        ctx.ellipse(x, y - height, radius, radius * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = c.outline;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        // Band stripe
+        ctx.fillStyle = c.accent;
+        ctx.fillRect(x - radius, y - height * 0.4, radius * 2, 2);
+    }
+
+    // Parking lot with varied cars
+    parkingLot(ctx, ix, iy, rows, cols) {
+        const carColors = ['#4070a0', '#a04040', '#606870', '#e0e0e0', '#3a8050', '#a07020', '#7050a0', '#c07030'];
+        for (let r = 0; r < rows; r++) {
+            for (let col = 0; col < cols; col++) {
+                const cp = this.iso(ix + col, iy + r * 2);
+                this.vehicle(ctx, cp.x, cp.y, carColors[(r * cols + col) % carColors.length], 'right', 10);
+            }
+        }
+    }
+
+    // Antenna / radio mast
+    antenna(ctx, x, y, height = 30) {
+        const c = this.colors;
+        ctx.strokeStyle = c.metalDark;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y - height);
+        ctx.stroke();
+        // Cross struts
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < height; i += 6) {
+            ctx.beginPath();
+            ctx.moveTo(x - 3, y - i);
+            ctx.lineTo(x + 3, y - i - 4);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x + 3, y - i);
+            ctx.lineTo(x - 3, y - i - 4);
+            ctx.stroke();
+        }
+        // Blinking light at top
+        const blink = Math.sin(this.frame * 0.08) > 0;
+        ctx.fillStyle = blink ? '#ff3333' : '#880000';
+        ctx.beginPath();
+        ctx.arc(x, y - height, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Flag pole
+    flagPole(ctx, x, y, height = 25, flagColor = '#4070a0') {
+        const c = this.colors;
+        ctx.fillStyle = c.metalDark;
+        ctx.fillRect(x - 0.5, y - height, 1, height);
+        // Flag (animated wave)
+        const wave = Math.sin(this.frame * 0.06) * 2;
+        ctx.fillStyle = flagColor;
+        ctx.beginPath();
+        ctx.moveTo(x + 1, y - height);
+        ctx.quadraticCurveTo(x + 7, y - height + 3 + wave, x + 12, y - height + 2);
+        ctx.lineTo(x + 12, y - height + 8 + wave * 0.5);
+        ctx.quadraticCurveTo(x + 7, y - height + 6 - wave, x + 1, y - height + 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = c.outline;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+    }
+
+    // Garden / flower bed
+    flowerBed(ctx, x, y, w, h) {
+        ctx.fillStyle = this.colors.grass;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = this.colors.outlineLight;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x, y, w, h);
+        // Flowers
+        const flowerColors = ['#e06080', '#e0d040', '#8060d0', '#e08040'];
+        for (let i = 0; i < 5; i++) {
+            const fx = x + 3 + i * (w - 6) / 4;
+            const fy = y + h / 2 + Math.sin(this.frame * 0.03 + i) * 1;
+            ctx.fillStyle = flowerColors[i % flowerColors.length];
+            ctx.beginPath();
+            ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
     // =========== AIRPORT SCENE ===========
     drawAirport(ctx) {
         this.sky(ctx);
         this.ground(ctx);
         const c = this.colors;
 
+        // Grass apron areas
+        this.tile(ctx, -6, 4, 4, 6, c.grass, false);
+        this.tile(ctx, 10, -8, 3, 4, c.grass, false);
+
         // Runway
         this.tile(ctx, -2, -6, 12, 2, '#707880', true);
-        // Runway markings
+        // Runway markings — center line
         const rStart = this.iso(-1, -5);
         const rEnd = this.iso(10, -5);
         ctx.strokeStyle = '#e0e0e0';
@@ -617,29 +722,58 @@ export class IsometricScene {
         ctx.lineTo(rEnd.x, rEnd.y);
         ctx.stroke();
         ctx.setLineDash([]);
+        // Runway threshold markings
+        for (let i = 0; i < 3; i++) {
+            const mk = this.iso(-1, -5.8 + i * 0.4);
+            ctx.fillStyle = '#e0e0e0';
+            ctx.fillRect(mk.x - 4, mk.y, 8, 1.5);
+        }
 
         // Taxiway
         this.road(ctx, 6, -4, 6, 2);
+        this.road(ctx, 2, -4, 6, -4);
 
-        // Terminal building
+        // Terminal building — main
         this.box(ctx, 3, 1, 6, 3, 4, [c.roof, c.buildingMid, c.buildingDark]);
-        // Terminal windows
         const tb = this.iso(3, 1);
         this.windowsOnFace(ctx, tb.x - 20, tb.y - 15, 50, 20, 6, 2);
+
+        // Terminal gate extensions (jet bridges)
+        for (let i = 0; i < 3; i++) {
+            this.box(ctx, 3 + i * 2, -1, 1, 0.5, 2, [c.buildingMid, c.buildingDark, '#707880']);
+        }
+
+        // Cargo terminal (left side)
+        this.box(ctx, -4, 2, 3, 2, 3, [c.metal, c.metalDark, '#506070']);
+        // Cargo containers
+        const cg = this.iso(-3, 3);
+        const containerColors = ['#4080b0', '#c05030', '#40a060'];
+        for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = containerColors[i];
+            ctx.fillRect(cg.x + i * 10 - 10, cg.y - 6, 8, 5);
+            ctx.strokeStyle = c.outline;
+            ctx.lineWidth = 0.4;
+            ctx.strokeRect(cg.x + i * 10 - 10, cg.y - 6, 8, 5);
+        }
 
         // Control tower
         this.box(ctx, 8, 2, 1, 1, 8, [c.roof, c.buildingMid, c.buildingDark]);
         const ct = this.iso(8, 2);
-        // Tower top (wider observation deck)
         ctx.fillStyle = '#a0b8c8';
         ctx.fillRect(ct.x - 8, ct.y - 62, 16, 4);
         ctx.strokeStyle = c.outline;
         ctx.lineWidth = 0.8;
         ctx.strokeRect(ct.x - 8, ct.y - 62, 16, 4);
-        // Tower glass
         ctx.fillStyle = '#88c8e8';
         ctx.fillRect(ct.x - 6, ct.y - 58, 12, 8);
         ctx.strokeRect(ct.x - 6, ct.y - 58, 12, 8);
+        // Antenna on tower
+        this.antenna(ctx, ct.x, ct.y - 66, 15);
+
+        // Fuel tanks
+        const ft = this.iso(10, 4);
+        this.fuelTank(ctx, ft.x, ft.y, 8, 6);
+        this.fuelTank(ctx, ft.x + 22, ft.y + 4, 7, 5);
 
         // Airplane on runway (animated taxiing)
         const planeX = this.iso(-1 + (this.frame * 0.02) % 10, -5);
@@ -651,15 +785,50 @@ export class IsometricScene {
         const flyY = 60 - flyPhase * 30;
         this.airplane(ctx, flyX, flyY, 0.5 + flyPhase * 0.3, -0.15);
 
-        // Trees along edge
-        for (let i = 0; i < 4; i++) {
-            const tp = this.iso(-3, 4 + i * 2);
-            this.tree(ctx, tp.x, tp.y, 0.8);
+        // Parked airplane at gate
+        const gateP = this.iso(5, -1);
+        this.airplane(ctx, gateP.x, gateP.y - 4, 0.6, -0.3);
+
+        // Fire station (small red building)
+        this.box(ctx, -6, 0, 2, 1, 2, [c.accent, c.accentDark, '#902818']);
+
+        // Trees along perimeter
+        for (let i = 0; i < 5; i++) {
+            const tp = this.iso(-4, 5 + i * 1.5);
+            this.tree(ctx, tp.x, tp.y, 0.7 + Math.sin(i) * 0.15);
         }
 
-        // Vehicles on taxiway
+        // Vehicles — fuel truck, baggage car, shuttle bus
         const v1 = this.iso(6, 0);
         this.vehicle(ctx, v1.x, v1.y, '#e8e080', 'right', 12);
+        const v2 = this.iso(4, -2);
+        this.vehicle(ctx, v2.x, v2.y, '#e0e4e8', 'left', 8);
+        const v3 = this.iso(7, 4);
+        this.vehicle(ctx, v3.x, v3.y, '#4070a0', 'right', 18);
+
+        // Wind sock
+        const ws = this.iso(-1, -8);
+        ctx.fillStyle = c.metalDark;
+        ctx.fillRect(ws.x, ws.y - 12, 1, 12);
+        const sockWave = Math.sin(this.frame * 0.06) * 2;
+        ctx.fillStyle = '#e07030';
+        ctx.beginPath();
+        ctx.moveTo(ws.x + 1, ws.y - 12);
+        ctx.lineTo(ws.x + 10 + sockWave, ws.y - 11);
+        ctx.lineTo(ws.x + 8 + sockWave, ws.y - 8);
+        ctx.lineTo(ws.x + 1, ws.y - 9);
+        ctx.closePath();
+        ctx.fill();
+
+        // People near terminal
+        for (let i = 0; i < 4; i++) {
+            const pp = this.iso(4 + i, 4);
+            this.person(ctx, pp.x, pp.y, ['#4070a0', '#a05030', '#508060', '#806030'][i], true);
+        }
+
+        // Flags
+        this.flagPole(ctx, tb.x - 30, tb.y + 2, 20, '#4070a0');
+        this.flagPole(ctx, tb.x - 22, tb.y + 2, 20, '#00b894');
     }
 
     // =========== AGRI-FOODS / ROASTERY ===========
@@ -676,43 +845,81 @@ export class IsometricScene {
         ctx.closePath();
         ctx.fill();
 
-        // Wheat field (right side)
-        this.tile(ctx, 6, -6, 6, 6, c.wheat, true);
-        // Wheat texture lines
+        // Wheat field (right side) — larger
+        this.tile(ctx, 5, -7, 8, 7, c.wheat, true);
+        // Wheat texture lines (denser)
         ctx.strokeStyle = c.wheatDark;
         ctx.lineWidth = 0.6;
-        for (let i = 0; i < 10; i++) {
-            const a = this.iso(7 + i * 0.5, -5);
-            const b = this.iso(7 + i * 0.5, 0);
+        for (let i = 0; i < 14; i++) {
+            const a = this.iso(6 + i * 0.5, -6);
+            const b = this.iso(6 + i * 0.5, 0);
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
             ctx.stroke();
         }
+        // Animated wheat sway
+        ctx.strokeStyle = '#d0b860';
+        ctx.lineWidth = 0.4;
+        for (let i = 0; i < 8; i++) {
+            const wx = this.iso(7 + i * 0.8, -4);
+            const sway = Math.sin(this.frame * 0.04 + i * 0.7) * 2;
+            ctx.beginPath();
+            ctx.moveTo(wx.x, wx.y);
+            ctx.lineTo(wx.x + sway, wx.y - 6);
+            ctx.stroke();
+        }
 
-        // Dirt area
-        this.tile(ctx, 4, -6, 2, 6, c.dirt, true);
+        // Green pasture area
+        this.tile(ctx, -8, -6, 4, 6, c.grass, true);
+
+        // Dirt area / barn yard
+        this.tile(ctx, 4, -7, 1, 7, c.dirt, true);
 
         // Roads
         this.road(ctx, 0, -2, 6, -2);
-        this.road(ctx, 0, -2, 0, 5);
+        this.road(ctx, 0, -2, 0, 6);
 
-        // Processing facility
+        // Processing facility — main building
         this.box(ctx, -4, 0, 4, 3, 5, [c.roof, c.buildingMid, c.buildingDark]);
-        // Silos
-        for (let i = 0; i < 2; i++) {
-            const sp = this.iso(-6 + i * 2, -3);
+        const facP = this.iso(-4, 0);
+        this.windowsOnFace(ctx, facP.x - 10, facP.y - 20, 30, 15, 3, 2);
+
+        // Cold storage / refrigeration wing
+        this.box(ctx, -4, 3, 3, 2, 3, ['#d0e0f0', '#b0c8d8', '#90a8b8']);
+        // Refrigeration units on top
+        const refP = this.iso(-3, 4);
+        ctx.fillStyle = '#b0b8c0';
+        ctx.fillRect(refP.x - 6, refP.y - 26, 5, 4);
+        ctx.fillRect(refP.x + 4, refP.y - 26, 5, 4);
+        ctx.strokeStyle = c.outline;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(refP.x - 6, refP.y - 26, 5, 4);
+        ctx.strokeRect(refP.x + 4, refP.y - 26, 5, 4);
+
+        // Silos — 3 now, with different sizes
+        for (let i = 0; i < 3; i++) {
+            const sp = this.iso(-7 + i * 2, -3);
+            const siloH = 18 + i * 4;
+            const siloR = 7 + i;
             ctx.fillStyle = '#c8d0d8';
             ctx.beginPath();
-            ctx.ellipse(sp.x, sp.y - 20, 8, 6, 0, 0, Math.PI * 2);
+            ctx.ellipse(sp.x, sp.y - siloH, siloR, siloR * 0.6, 0, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillRect(sp.x - 8, sp.y - 20, 16, 20);
+            ctx.fillRect(sp.x - siloR, sp.y - siloH, siloR * 2, siloH);
             ctx.strokeStyle = c.outline;
             ctx.lineWidth = 0.8;
             ctx.beginPath();
-            ctx.ellipse(sp.x, sp.y - 20, 8, 6, 0, 0, Math.PI * 2);
+            ctx.ellipse(sp.x, sp.y - siloH, siloR, siloR * 0.6, 0, 0, Math.PI * 2);
             ctx.stroke();
-            ctx.strokeRect(sp.x - 8, sp.y - 20, 16, 20);
+            ctx.strokeRect(sp.x - siloR, sp.y - siloH, siloR * 2, siloH);
+            // Ladder
+            ctx.strokeStyle = c.metalDark;
+            ctx.lineWidth = 0.4;
+            ctx.beginPath();
+            ctx.moveTo(sp.x + siloR - 1, sp.y);
+            ctx.lineTo(sp.x + siloR - 1, sp.y - siloH);
+            ctx.stroke();
         }
 
         // Smoke from processing
@@ -720,37 +927,88 @@ export class IsometricScene {
         this.chimney(ctx, sm.x + 20, sm.y - 30, 18, 5);
         this.smoke(ctx, sm.x + 20, sm.y - 48, 3);
 
+        // Barn / storage shed
+        this.box(ctx, 1, -5, 2, 2, 3, [c.accent, c.accentDark, '#902818']);
+
         // Tractor in field (animated)
         const tractorPos = this.iso(8 + Math.sin(this.frame * 0.01) * 2, -3);
         this.tractor(ctx, tractorPos.x, tractorPos.y);
 
+        // Second tractor (parked near barn)
+        const t2 = this.iso(2, -4);
+        this.tractor(ctx, t2.x, t2.y);
+
         // Warehouse
         this.box(ctx, 1, 3, 3, 2, 3, [c.metal, c.metalDark, '#506070']);
 
-        // Delivery truck
+        // Loading dock area
+        const dock = this.iso(2, 5);
+        ctx.fillStyle = '#a0a8b0';
+        ctx.fillRect(dock.x - 15, dock.y - 4, 30, 4);
+        ctx.strokeStyle = c.outlineLight;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(dock.x - 15, dock.y - 4, 30, 4);
+
+        // Delivery trucks (2)
         const trk = this.iso(3, -2);
         this.vehicle(ctx, trk.x, trk.y, '#e0e4e8', 'left', 18);
+        const trk2 = this.iso(1, 6);
+        this.vehicle(ctx, trk2.x, trk2.y, '#40a060', 'right', 20);
+
+        // Water tower
+        const wt = this.iso(10, 2);
+        ctx.fillStyle = c.metalDark;
+        ctx.fillRect(wt.x - 1, wt.y - 20, 2, 20);
+        ctx.fillRect(wt.x - 6, wt.y - 4, 12, 2);
+        ctx.fillStyle = '#88b0c8';
+        ctx.beginPath();
+        ctx.ellipse(wt.x, wt.y - 28, 8, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = c.outline;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
+        // Workers near facility
+        for (let i = 0; i < 3; i++) {
+            const wp = this.iso(-2 + i, 6);
+            this.person(ctx, wp.x, wp.y, ['#4070a0', '#e07030', '#508060'][i], true);
+        }
 
         // Trees around facility
-        for (let i = 0; i < 3; i++) {
-            const tp = this.iso(-8, 2 + i * 2);
-            this.tree(ctx, tp.x, tp.y, 0.7);
+        for (let i = 0; i < 4; i++) {
+            const tp = this.iso(-9, 1 + i * 2);
+            this.tree(ctx, tp.x, tp.y, 0.7 + Math.sin(i) * 0.1);
+        }
+        // Hedgerow along field edge
+        for (let i = 0; i < 6; i++) {
+            const hp = this.iso(13, -6 + i);
+            this.tree(ctx, hp.x, hp.y, 0.45);
         }
 
         // Fence along field
         ctx.strokeStyle = c.outlineLight;
         ctx.lineWidth = 0.6;
-        const fa = this.iso(12, -6);
-        const fb = this.iso(12, 0);
+        const fa = this.iso(5, -7);
+        const fb = this.iso(5, 0);
         ctx.beginPath();
         ctx.moveTo(fa.x, fa.y);
         ctx.lineTo(fb.x, fb.y);
         ctx.stroke();
         // Fence posts
-        for (let i = 0; i < 4; i++) {
-            const fp = this.iso(12, -5 + i * 1.5);
+        for (let i = 0; i < 5; i++) {
+            const fp = this.iso(5, -6 + i * 1.5);
             ctx.fillStyle = c.trunk;
             ctx.fillRect(fp.x - 1, fp.y - 6, 2, 6);
+        }
+
+        // Cows in pasture (simple dots)
+        for (let i = 0; i < 4; i++) {
+            const cow = this.iso(-7 + i * 1.5 + Math.sin(this.frame * 0.005 + i) * 0.3, -4 + i * 0.8);
+            ctx.fillStyle = '#e8e0d8';
+            ctx.fillRect(cow.x - 3, cow.y - 3, 6, 3);
+            ctx.fillStyle = '#303030';
+            ctx.fillRect(cow.x - 1, cow.y - 3, 2, 1);
+            ctx.fillRect(cow.x + 1, cow.y - 2, 2, 2);
         }
     }
 
@@ -760,9 +1018,18 @@ export class IsometricScene {
         this.ground(ctx);
         const c = this.colors;
 
+        // Dirt/excavation area
+        this.tile(ctx, -3, -4, 6, 4, c.dirt, true);
+
         // Roads
         this.road(ctx, -4, 2, 8, 2);
         this.road(ctx, 2, -4, 2, 6);
+        this.road(ctx, -6, 2, -6, 6);
+
+        // Existing completed building next door
+        this.box(ctx, -6, -2, 3, 2, 5, [c.roof, c.building, c.buildingMid]);
+        const nb = this.iso(-6, -2);
+        this.windowsOnFace(ctx, nb.x - 8, nb.y - 22, 28, 22, 3, 3);
 
         // Building under construction (partial floors)
         const floors = 3 + Math.floor(this.yearOffset);
@@ -771,7 +1038,16 @@ export class IsometricScene {
             ctx.globalAlpha = alpha;
             this.box(ctx, 0, -2, 3, 3, 2 + f * 2, ['#c8d8e8', '#a0b0c0', '#8090a0']);
             ctx.globalAlpha = 1;
+
+            // Floor numbers on building edge
+            if (f < floors - 1) {
+                const floorP = this.iso(0, -2);
+                ctx.font = '6px monospace';
+                ctx.fillStyle = c.outlineLight;
+                ctx.fillText(`${f + 1}`, floorP.x + 25, floorP.y - (f * 2 + 2) * (this.tileH / 2) + 5);
+            }
         }
+
         // Steel beams showing on top floor
         const topP = this.iso(0, -2);
         const topH = (floors * 2 + 2) * (this.tileH / 2);
@@ -783,26 +1059,73 @@ export class IsometricScene {
             ctx.lineTo(topP.x - 15 + i * 12, topP.y - topH - 10);
             ctx.stroke();
         }
+        // Rebar (horizontal on top)
+        ctx.strokeStyle = '#808890';
+        ctx.lineWidth = 0.8;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(topP.x - 15, topP.y - topH - 3 - i * 3);
+            ctx.lineTo(topP.x + 25, topP.y - topH - 3 - i * 3);
+            ctx.stroke();
+        }
 
         // Crane (animated, slight swing)
         this.crane(ctx, topP.x + 30, topP.y + 20, 70, 50);
 
-        // Scaffolding (simple lines)
+        // Second smaller crane
+        this.crane(ctx, topP.x - 50, topP.y + 30, 45, 30);
+
+        // Scaffolding (more detailed)
         ctx.strokeStyle = c.crane;
         ctx.lineWidth = 0.6;
         const scaffX = topP.x - 30;
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 6; i++) {
+            // Horizontal
             ctx.beginPath();
-            ctx.moveTo(scaffX, topP.y - i * 14);
-            ctx.lineTo(scaffX + 20, topP.y - i * 14);
+            ctx.moveTo(scaffX, topP.y - i * 10);
+            ctx.lineTo(scaffX + 20, topP.y - i * 10);
             ctx.stroke();
+            // Verticals
+            ctx.beginPath();
+            ctx.moveTo(scaffX, topP.y - i * 10);
+            ctx.lineTo(scaffX, topP.y - (i + 1) * 10);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(scaffX + 20, topP.y - i * 10);
+            ctx.lineTo(scaffX + 20, topP.y - (i + 1) * 10);
+            ctx.stroke();
+            // Cross bracing
+            ctx.lineWidth = 0.4;
+            ctx.beginPath();
+            ctx.moveTo(scaffX, topP.y - i * 10);
+            ctx.lineTo(scaffX + 20, topP.y - (i + 1) * 10);
+            ctx.stroke();
+            ctx.lineWidth = 0.6;
         }
+
+        // Site office (portable building)
+        this.box(ctx, 5, 4, 2, 1, 1.5, ['#e0e4e8', '#c0c8d0', '#a0a8b0']);
+        const siteOff = this.iso(5, 4);
+        ctx.fillStyle = c.window;
+        ctx.fillRect(siteOff.x + 2, siteOff.y - 10, 6, 3);
 
         // Cement mixer truck
         const mx = this.iso(4, 3);
         this.vehicle(ctx, mx.x, mx.y, '#e0e070', 'left', 16);
 
-        // Piles of materials
+        // Dump truck
+        const dt = this.iso(-4, 4);
+        this.vehicle(ctx, dt.x, dt.y, '#d0a030', 'right', 20);
+
+        // Skip / dumpster
+        const skip = this.iso(6, 1);
+        ctx.fillStyle = '#d0a030';
+        ctx.fillRect(skip.x - 6, skip.y - 6, 12, 6);
+        ctx.strokeStyle = c.outline;
+        ctx.lineWidth = 0.6;
+        ctx.strokeRect(skip.x - 6, skip.y - 6, 12, 6);
+
+        // Piles of materials (sand, gravel)
         const mp = this.iso(-3, 4);
         ctx.fillStyle = c.dirt;
         ctx.beginPath();
@@ -814,18 +1137,47 @@ export class IsometricScene {
         ctx.strokeStyle = c.outline;
         ctx.lineWidth = 0.6;
         ctx.stroke();
+        // Gravel pile
+        const gp = this.iso(-2, 5);
+        ctx.fillStyle = '#a0a8b0';
+        ctx.beginPath();
+        ctx.moveTo(gp.x - 7, gp.y);
+        ctx.lineTo(gp.x, gp.y - 5);
+        ctx.lineTo(gp.x + 7, gp.y);
+        ctx.closePath();
+        ctx.fill();
 
-        // Workers
-        for (let i = 0; i < 3; i++) {
-            const wp = this.iso(1 + i, 4);
+        // Steel beams on ground
+        const sb = this.iso(3, 5);
+        ctx.fillStyle = c.metal;
+        for (let i = 0; i < 4; i++) {
+            ctx.fillRect(sb.x - 12 + i * 3, sb.y - 2, 2, 16);
+        }
+
+        // Safety barrier / hoarding
+        ctx.fillStyle = '#e07030';
+        const hStart = this.iso(-3, 2);
+        const hEnd = this.iso(5, 2);
+        ctx.fillRect(hStart.x, hStart.y - 6, hEnd.x - hStart.x, 6);
+        // Stripes
+        ctx.fillStyle = '#f0f0f0';
+        for (let i = 0; i < (hEnd.x - hStart.x) / 12; i++) {
+            ctx.fillRect(hStart.x + i * 12, hStart.y - 6, 6, 6);
+        }
+
+        // Workers (more, with hard hats = orange color)
+        for (let i = 0; i < 5; i++) {
+            const wp = this.iso(-1 + i, 4 + Math.sin(i) * 0.5);
             this.person(ctx, wp.x, wp.y, '#e07030', true);
         }
 
         // Trees
-        const tp1 = this.iso(-6, 0);
+        const tp1 = this.iso(-8, 0);
         this.tree(ctx, tp1.x, tp1.y, 0.8);
-        const tp2 = this.iso(7, 5);
+        const tp2 = this.iso(8, 6);
         this.tree(ctx, tp2.x, tp2.y, 0.6);
+        const tp3 = this.iso(-7, 5);
+        this.tree(ctx, tp3.x, tp3.y, 0.7);
     }
 
     // =========== ENERGY GRID ===========
@@ -834,18 +1186,54 @@ export class IsometricScene {
         this.ground(ctx);
         const c = this.colors;
 
+        // Water area (cooling reservoir)
+        this.tile(ctx, -6, -6, 4, 4, c.water, true);
+        // Water ripples
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < 3; i++) {
+            const wr = this.iso(-4, -4);
+            const ripR = 6 + i * 4 + Math.sin(this.frame * 0.03 + i) * 2;
+            ctx.beginPath();
+            ctx.ellipse(wr.x, wr.y, ripR, ripR * 0.5, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
         // Roads
         this.road(ctx, -2, 2, 8, 2);
         this.road(ctx, 4, -4, 4, 6);
+        this.road(ctx, -4, 2, -4, 6);
 
-        // Wind turbines (right side)
-        for (let i = 0; i < 3; i++) {
-            const wp = this.iso(8 + i * 2, -2 + i);
-            this.windTurbine(ctx, wp.x, wp.y, 45);
+        // Wind turbines (right side) — more of them, varied heights
+        for (let i = 0; i < 4; i++) {
+            const wp = this.iso(8 + i * 2, -3 + i);
+            this.windTurbine(ctx, wp.x, wp.y, 40 + i * 5);
+        }
+
+        // Solar panel array
+        const spBase = this.iso(6, -6);
+        ctx.fillStyle = '#3050a0';
+        for (let r = 0; r < 2; r++) {
+            for (let col = 0; col < 3; col++) {
+                const sx = spBase.x + col * 12 - 12;
+                const sy = spBase.y + r * 6 - 6;
+                ctx.fillRect(sx, sy, 10, 4);
+                // Grid lines on panel
+                ctx.strokeStyle = '#4060b0';
+                ctx.lineWidth = 0.3;
+                ctx.strokeRect(sx, sy, 10, 4);
+                ctx.beginPath();
+                ctx.moveTo(sx + 5, sy);
+                ctx.lineTo(sx + 5, sy + 4);
+                ctx.stroke();
+            }
         }
 
         // Power plant building
         this.box(ctx, -4, -2, 4, 3, 4, [c.buildingMid, c.buildingDark, '#606870']);
+        const ppB = this.iso(-4, -2);
+        this.windowsOnFace(ctx, ppB.x - 10, ppB.y - 16, 30, 16, 3, 2);
+
         // Chimneys
         const pp = this.iso(-3, -1);
         this.chimney(ctx, pp.x, pp.y - 28, 25, 6);
@@ -853,32 +1241,42 @@ export class IsometricScene {
         this.smoke(ctx, pp.x, pp.y - 53, 4, 10);
         this.smoke(ctx, pp.x + 18, pp.y - 46, 3, 8);
 
+        // Control room (smaller building)
+        this.box(ctx, -6, 2, 2, 2, 2, [c.roof, c.building, c.buildingMid]);
+
         // Cooling towers
         const ct1 = this.iso(-1, -4);
         this.coolingTower(ctx, ct1.x, ct1.y, 35, 12, 16);
         const ct2 = this.iso(1, -4);
         this.coolingTower(ctx, ct2.x, ct2.y, 30, 10, 14);
         this.smoke(ctx, ct1.x, ct1.y - 35, 3, 8);
+        this.smoke(ctx, ct2.x, ct2.y - 30, 2, 6);
 
-        // Oil tanker / storage
-        const tank = this.iso(1, 4);
-        ctx.fillStyle = c.metal;
-        ctx.beginPath();
-        ctx.ellipse(tank.x, tank.y - 8, 14, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillRect(tank.x - 14, tank.y - 8, 28, 8);
-        ctx.strokeStyle = c.outline;
-        ctx.lineWidth = 0.8;
-        ctx.beginPath();
-        ctx.ellipse(tank.x, tank.y - 8, 14, 8, 0, 0, Math.PI * 2);
-        ctx.stroke();
+        // Oil storage tanks (multiple)
+        for (let i = 0; i < 3; i++) {
+            const tank = this.iso(-1 + i * 2, 4);
+            this.fuelTank(ctx, tank.x, tank.y, 10, 7);
+        }
 
-        // Power lines
+        // Substation (transformer yard)
+        const ss = this.iso(3, 4);
+        this.box(ctx, 3, 4, 1.5, 1.5, 1, [c.metal, c.metalDark, '#506070']);
+        // Transformer units
+        ctx.fillStyle = '#708090';
+        ctx.fillRect(ss.x - 4, ss.y - 10, 4, 6);
+        ctx.fillRect(ss.x + 2, ss.y - 10, 4, 6);
         ctx.strokeStyle = c.outline;
         ctx.lineWidth = 0.5;
+        ctx.strokeRect(ss.x - 4, ss.y - 10, 4, 6);
+        ctx.strokeRect(ss.x + 2, ss.y - 10, 4, 6);
+        // Insulators (small circles on top)
+        ctx.fillStyle = '#e0e8f0';
+        ctx.beginPath(); ctx.arc(ss.x - 2, ss.y - 11, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(ss.x + 4, ss.y - 11, 1.5, 0, Math.PI * 2); ctx.fill();
+
+        // Power lines (pylons)
         for (let i = 0; i < 4; i++) {
             const pylonP = this.iso(2 + i * 2, 0);
-            // Pylon (simplified)
             ctx.strokeStyle = c.metalDark;
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -886,13 +1284,17 @@ export class IsometricScene {
             ctx.lineTo(pylonP.x, pylonP.y - 20);
             ctx.lineTo(pylonP.x + 3, pylonP.y);
             ctx.stroke();
-            // Cross arm
             ctx.beginPath();
             ctx.moveTo(pylonP.x - 6, pylonP.y - 16);
             ctx.lineTo(pylonP.x + 6, pylonP.y - 16);
             ctx.stroke();
+            // Second cross arm
+            ctx.beginPath();
+            ctx.moveTo(pylonP.x - 4, pylonP.y - 12);
+            ctx.lineTo(pylonP.x + 4, pylonP.y - 12);
+            ctx.stroke();
         }
-        // Wire between pylons
+        // Wire between pylons (two levels)
         ctx.strokeStyle = '#808890';
         ctx.lineWidth = 0.4;
         for (let i = 0; i < 3; i++) {
@@ -902,11 +1304,33 @@ export class IsometricScene {
             ctx.moveTo(a.x, a.y - 16);
             ctx.quadraticCurveTo((a.x + b.x) / 2, a.y - 12, b.x, b.y - 16);
             ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y - 12);
+            ctx.quadraticCurveTo((a.x + b.x) / 2, a.y - 8, b.x, b.y - 12);
+            ctx.stroke();
         }
 
         // Tanker truck
         const tt = this.iso(6, 3);
         this.vehicle(ctx, tt.x, tt.y, '#607080', 'right', 22);
+
+        // Workers
+        for (let i = 0; i < 2; i++) {
+            const wp = this.iso(-3 + i * 2, 6);
+            this.person(ctx, wp.x, wp.y, '#e07030', true);
+        }
+
+        // Security fence around plant
+        ctx.strokeStyle = c.metalDark;
+        ctx.lineWidth = 0.5;
+        const fenceA = this.iso(-6, -2);
+        const fenceB = this.iso(-6, 6);
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        ctx.moveTo(fenceA.x, fenceA.y);
+        ctx.lineTo(fenceB.x, fenceB.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
     }
 
     // =========== SHOPPING CENTRE / RETAIL ===========
@@ -915,48 +1339,99 @@ export class IsometricScene {
         this.ground(ctx);
         const c = this.colors;
 
+        // Car park tarmac
+        this.tile(ctx, 4, -4, 6, 6, '#808890', true);
+        // Parking lines
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 0.4;
+        for (let i = 0; i < 5; i++) {
+            const pa = this.iso(5 + i, -3);
+            const pb = this.iso(5 + i, -1);
+            ctx.beginPath();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.stroke();
+        }
+
         // Roads
         this.road(ctx, -6, 2, 10, 2);
         this.road(ctx, 2, -4, 2, 8);
 
-        // Main shopping building
+        // Main shopping building (larger)
         this.box(ctx, -2, -2, 5, 4, 4, [c.roof, c.buildingMid, c.buildingDark]);
-        // Storefront windows
         const sf = this.iso(-2, -2);
         this.windowsOnFace(ctx, sf.x - 25, sf.y - 15, 55, 22, 6, 2);
 
-        // Entrance canopy
+        // Second floor retail
+        this.box(ctx, -1, -1, 3, 3, 7, [c.roof, c.building, c.buildingMid]);
+        const sf2 = this.iso(-1, -1);
+        this.windowsOnFace(ctx, sf2.x - 12, sf2.y - 42, 32, 14, 4, 2);
+
+        // Entrance canopy (wider, with pillars)
         const ent = this.iso(1, 2);
         ctx.fillStyle = c.accent;
-        ctx.fillRect(ent.x - 12, ent.y - 30, 24, 3);
+        ctx.fillRect(ent.x - 16, ent.y - 30, 32, 3);
         ctx.strokeStyle = c.outline;
         ctx.lineWidth = 0.6;
-        ctx.strokeRect(ent.x - 12, ent.y - 30, 24, 3);
+        ctx.strokeRect(ent.x - 16, ent.y - 30, 32, 3);
+        // Pillars
+        ctx.fillStyle = c.buildingMid;
+        ctx.fillRect(ent.x - 14, ent.y - 27, 2, 10);
+        ctx.fillRect(ent.x + 12, ent.y - 27, 2, 10);
 
-        // Car park (grid of small vehicles)
-        for (let i = 0; i < 3; i++) {
-            for (let j = 0; j < 2; j++) {
-                const cp = this.iso(5 + i, -2 + j * 2);
-                const carColors = ['#4070a0', '#a04040', '#606870', '#e0e0e0', '#3a8050', '#a07020'];
-                this.vehicle(ctx, cp.x, cp.y, carColors[(i + j * 3) % carColors.length], 'right', 10);
+        // Store signs
+        ctx.font = '5px monospace';
+        ctx.fillStyle = '#e0e8f0';
+        ctx.fillText('MAINSTREET', ent.x - 12, ent.y - 32);
+
+        // Automatic doors (animated)
+        const doorOpen = Math.sin(this.frame * 0.05) > 0;
+        ctx.fillStyle = doorOpen ? '#88c8e8' : '#60a0c0';
+        ctx.fillRect(ent.x - 4, ent.y - 26, doorOpen ? 3 : 8, 8);
+        ctx.fillRect(ent.x + (doorOpen ? 1 : 0), ent.y - 26, doorOpen ? 3 : 0, 8);
+
+        // Parked cars (more, proper grid)
+        this.parkingLot(ctx, 5, -3, 2, 4);
+
+        // Loading dock (back, bigger)
+        this.box(ctx, -4, -1, 2, 2, 3, [c.metal, c.metalDark, '#506068']);
+        // Roll-up dock doors
+        const dockP = this.iso(-4, 0);
+        for (let i = 0; i < 2; i++) {
+            ctx.fillStyle = '#506870';
+            ctx.fillRect(dockP.x + i * 12 - 8, dockP.y - 14, 8, 10);
+            ctx.strokeStyle = c.outlineLight;
+            ctx.lineWidth = 0.3;
+            for (let line = 0; line < 4; line++) {
+                ctx.beginPath();
+                ctx.moveTo(dockP.x + i * 12 - 8, dockP.y - 14 + line * 2.5);
+                ctx.lineTo(dockP.x + i * 12, dockP.y - 14 + line * 2.5);
+                ctx.stroke();
             }
         }
-
-        // Loading dock (back)
-        this.box(ctx, -4, -1, 2, 2, 3, [c.metal, c.metalDark, '#506068']);
-        // Delivery truck at dock
+        // Delivery trucks at dock
         const dock = this.iso(-5, 0);
         this.vehicle(ctx, dock.x, dock.y, '#e0e4e8', 'left', 20);
+        const dock2 = this.iso(-5, 2);
+        this.vehicle(ctx, dock2.x, dock2.y, '#c05030', 'left', 18);
 
-        // People walking (animated)
-        for (let i = 0; i < 5; i++) {
-            const px = this.iso(0 + i, 3 + Math.sin(this.frame * 0.02 + i) * 0.5);
-            this.person(ctx, px.x, px.y, ['#4070a0', '#a05030', '#508060', '#806030', '#6050a0'][i], true);
+        // Shopping trolley bay
+        const trolley = this.iso(3, 3);
+        ctx.fillStyle = c.metal;
+        ctx.fillRect(trolley.x - 4, trolley.y - 4, 8, 4);
+        ctx.strokeStyle = c.outline;
+        ctx.lineWidth = 0.4;
+        ctx.strokeRect(trolley.x - 4, trolley.y - 4, 8, 4);
+
+        // People walking (more, animated)
+        for (let i = 0; i < 7; i++) {
+            const px = this.iso(-1 + i * 0.8, 3 + Math.sin(this.frame * 0.02 + i) * 0.5);
+            this.person(ctx, px.x, px.y, ['#4070a0', '#a05030', '#508060', '#806030', '#6050a0', '#c07040', '#505080'][i], true);
         }
 
         // Lamp posts along road
-        for (let i = 0; i < 3; i++) {
-            const lp = this.iso(-4 + i * 3, 3);
+        for (let i = 0; i < 4; i++) {
+            const lp = this.iso(-5 + i * 3, 3);
             ctx.fillStyle = c.metalDark;
             ctx.fillRect(lp.x, lp.y - 16, 2, 16);
             ctx.fillStyle = '#f0e0a0';
@@ -965,11 +1440,27 @@ export class IsometricScene {
             ctx.fill();
         }
 
+        // Flower beds near entrance
+        this.flowerBed(ctx, ent.x - 20, ent.y - 18, 8, 4);
+        this.flowerBed(ctx, ent.x + 14, ent.y - 18, 8, 4);
+
         // Trees in car park
         const tp1 = this.iso(6, 1);
         this.tree(ctx, tp1.x, tp1.y, 0.7);
         const tp2 = this.iso(8, 3);
         this.tree(ctx, tp2.x, tp2.y, 0.6);
+        const tp3 = this.iso(10, -1);
+        this.tree(ctx, tp3.x, tp3.y, 0.8);
+
+        // Bus stop
+        const bs = this.iso(-6, 4);
+        ctx.fillStyle = c.metalDark;
+        ctx.fillRect(bs.x, bs.y - 12, 1, 12);
+        ctx.fillRect(bs.x + 8, bs.y - 12, 1, 12);
+        ctx.fillStyle = '#4070a0';
+        ctx.fillRect(bs.x, bs.y - 12, 9, 2);
+        // Bus
+        this.vehicle(ctx, bs.x + 15, bs.y, '#40a060', 'right', 22);
     }
 
     // =========== TECH FACTORY ===========
@@ -978,45 +1469,83 @@ export class IsometricScene {
         this.ground(ctx);
         const c = this.colors;
 
+        // Landscaped lawn area
+        this.tile(ctx, -6, -4, 3, 6, c.grass, false);
+
         // Roads
         this.road(ctx, -2, 3, 10, 3);
         this.road(ctx, 4, -4, 4, 8);
 
-        // Main factory building
-        this.box(ctx, -2, -2, 6, 4, 4, [c.buildingMid, c.buildingDark, '#606870']);
-        // Factory windows (large)
+        // Main factory building (larger)
+        this.box(ctx, -2, -2, 6, 4, 5, [c.buildingMid, c.buildingDark, '#606870']);
         const fb = this.iso(-2, -2);
-        this.windowsOnFace(ctx, fb.x - 22, fb.y - 12, 55, 22, 5, 2);
+        this.windowsOnFace(ctx, fb.x - 22, fb.y - 16, 55, 26, 5, 3);
 
-        // Assembly wing
-        this.box(ctx, 4, -3, 3, 3, 3, [c.roof, c.building, c.buildingMid]);
+        // Company logo area on building
+        ctx.fillStyle = '#4080b0';
+        ctx.fillRect(fb.x + 8, fb.y - 38, 20, 4);
+        ctx.font = '4px monospace';
+        ctx.fillStyle = '#e0f0ff';
+        ctx.fillText('NEXGEN', fb.x + 10, fb.y - 35);
 
-        // Roof vents
+        // Assembly wing (taller)
+        this.box(ctx, 4, -3, 3, 3, 4, [c.roof, c.building, c.buildingMid]);
+        const aw = this.iso(4, -3);
+        this.windowsOnFace(ctx, aw.x - 8, aw.y - 20, 20, 16, 2, 2);
+
+        // R&D building (modern glass)
+        this.box(ctx, -4, -4, 2, 2, 6, ['#c0d8e8', '#90b0c8', '#6888a0']);
+        const rd = this.iso(-4, -4);
+        this.windowsOnFace(ctx, rd.x - 6, rd.y - 36, 18, 30, 2, 4);
+
+        // Roof vents and AC units
         const rv = this.iso(0, -1);
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 4; i++) {
             ctx.fillStyle = c.metal;
-            ctx.fillRect(rv.x + i * 16 - 10, rv.y - 32, 6, 4);
+            ctx.fillRect(rv.x + i * 12 - 10, rv.y - 38, 6, 4);
             ctx.strokeStyle = c.outline;
             ctx.lineWidth = 0.5;
-            ctx.strokeRect(rv.x + i * 16 - 10, rv.y - 32, 6, 4);
+            ctx.strokeRect(rv.x + i * 12 - 10, rv.y - 38, 6, 4);
+            // Fan animation
+            const fanAngle = this.frame * 0.1 + i;
+            ctx.strokeStyle = c.metalDark;
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(rv.x + i * 12 - 7 + Math.cos(fanAngle) * 2, rv.y - 36 + Math.sin(fanAngle) * 1);
+            ctx.lineTo(rv.x + i * 12 - 7 - Math.cos(fanAngle) * 2, rv.y - 36 - Math.sin(fanAngle) * 1);
+            ctx.stroke();
         }
 
-        // Conveyor belt (animated dots)
+        // Conveyor belt (animated dots) — longer
         const convStart = this.iso(5, -1);
-        const convEnd = this.iso(8, -1);
+        const convEnd = this.iso(9, -1);
         ctx.strokeStyle = c.metalDark;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(convStart.x, convStart.y - 4);
         ctx.lineTo(convEnd.x, convEnd.y - 4);
         ctx.stroke();
-        // Moving items on conveyor
-        for (let i = 0; i < 4; i++) {
-            const phase = ((this.frame * 0.5 + i * 20) % 80) / 80;
+        // Conveyor rails
+        ctx.strokeStyle = '#909898';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(convStart.x, convStart.y - 6);
+        ctx.lineTo(convEnd.x, convEnd.y - 6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(convStart.x, convStart.y - 2);
+        ctx.lineTo(convEnd.x, convEnd.y - 2);
+        ctx.stroke();
+        // Moving items on conveyor (circuit boards)
+        for (let i = 0; i < 5; i++) {
+            const phase = ((this.frame * 0.5 + i * 16) % 80) / 80;
             const cx = convStart.x + (convEnd.x - convStart.x) * phase;
             const cy = convStart.y + (convEnd.y - convStart.y) * phase - 6;
-            ctx.fillStyle = '#4080b0';
+            ctx.fillStyle = '#30a060';
             ctx.fillRect(cx - 3, cy, 6, 4);
+            // IC chip marks
+            ctx.fillStyle = '#202020';
+            ctx.fillRect(cx - 1, cy + 1, 2, 2);
             ctx.strokeStyle = c.outline;
             ctx.lineWidth = 0.4;
             ctx.strokeRect(cx - 3, cy, 6, 4);
@@ -1027,23 +1556,56 @@ export class IsometricScene {
         this.vehicle(ctx, lb.x, lb.y, '#e0e4e8', 'left', 20);
         const lb2 = this.iso(6, 5);
         this.vehicle(ctx, lb2.x, lb2.y, '#4080b0', 'left', 18);
+        // Shipping container
+        const sc = this.iso(8, 6);
+        ctx.fillStyle = '#c05030';
+        ctx.fillRect(sc.x - 10, sc.y - 8, 20, 8);
+        ctx.strokeStyle = c.outline;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(sc.x - 10, sc.y - 8, 20, 8);
 
         // Satellite dish on roof
         const sd = this.iso(5, -3);
         ctx.fillStyle = c.metal;
         ctx.beginPath();
-        ctx.arc(sd.x, sd.y - 28, 6, Math.PI * 0.8, Math.PI * 2.2);
-        ctx.lineTo(sd.x, sd.y - 28);
+        ctx.arc(sd.x, sd.y - 34, 6, Math.PI * 0.8, Math.PI * 2.2);
+        ctx.lineTo(sd.x, sd.y - 34);
         ctx.fill();
         ctx.strokeStyle = c.outline;
         ctx.lineWidth = 0.6;
         ctx.stroke();
+        // Second satellite dish
+        ctx.fillStyle = c.metal;
+        ctx.beginPath();
+        ctx.arc(sd.x + 14, sd.y - 32, 4, Math.PI * 0.8, Math.PI * 2.2);
+        ctx.lineTo(sd.x + 14, sd.y - 32);
+        ctx.fill();
+        ctx.stroke();
 
-        // Trees
+        // Antenna
+        this.antenna(ctx, rd.x + 6, rd.y - 42, 18);
+
+        // Employee parking
+        this.parkingLot(ctx, -6, 2, 1, 3);
+
+        // Workers
         for (let i = 0; i < 3; i++) {
-            const tp = this.iso(-5, 0 + i * 2);
-            this.tree(ctx, tp.x, tp.y, 0.7);
+            const wp = this.iso(2 + i, 4 + Math.sin(this.frame * 0.015 + i) * 0.3);
+            this.person(ctx, wp.x, wp.y, ['#e0e8f0', '#4070a0', '#508060'][i], true);
         }
+
+        // Trees (landscaping)
+        for (let i = 0; i < 4; i++) {
+            const tp = this.iso(-6, -3 + i * 2);
+            this.tree(ctx, tp.x, tp.y, 0.7 + Math.sin(i) * 0.15);
+        }
+        // Decorative trees near entrance
+        const tpEnt = this.iso(-2, 3);
+        this.tree(ctx, tpEnt.x - 10, tpEnt.y, 0.5);
+        this.tree(ctx, tpEnt.x + 10, tpEnt.y, 0.5);
+
+        // Flag pole
+        this.flagPole(ctx, fb.x - 28, fb.y + 4, 22, '#4080b0');
     }
 
     // =========== PHARMA LAB ===========
@@ -1052,47 +1614,106 @@ export class IsometricScene {
         this.ground(ctx);
         const c = this.colors;
 
+        // Landscaped areas
+        this.tile(ctx, -8, -4, 4, 4, c.grass, false);
+
         // Roads
         this.road(ctx, -4, 3, 10, 3);
         this.road(ctx, 3, -4, 3, 8);
+        this.road(ctx, -4, 3, -4, 6);
 
-        // Main research building (modern glass)
-        this.box(ctx, -2, -2, 5, 3, 5, ['#c0d8e8', '#90b0c8', '#6888a0']);
-        // Glass facade
+        // Main research building (modern glass, taller)
+        this.box(ctx, -2, -2, 5, 3, 6, ['#c0d8e8', '#90b0c8', '#6888a0']);
         const lb = this.iso(-2, -2);
-        this.windowsOnFace(ctx, lb.x - 18, lb.y - 20, 48, 28, 5, 3);
+        this.windowsOnFace(ctx, lb.x - 18, lb.y - 26, 48, 34, 5, 4);
 
-        // Secondary lab building
-        this.box(ctx, 3, -3, 3, 2, 3, [c.roof, c.building, c.buildingMid]);
+        // Helipad on roof
+        const roofP = this.iso(0, 0);
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(roofP.x, roofP.y - 46, 8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.font = '6px monospace';
+        ctx.fillStyle = '#e0e0e0';
+        ctx.textAlign = 'center';
+        ctx.fillText('H', roofP.x, roofP.y - 44);
+        ctx.textAlign = 'left';
 
-        // Clean room annex (low, white)
-        this.box(ctx, -4, 2, 2, 3, 2, ['#e8ecf0', '#d0d8e0', '#b8c0c8']);
+        // Secondary lab building (taller)
+        this.box(ctx, 3, -3, 3, 2, 4, [c.roof, c.building, c.buildingMid]);
+        const slb = this.iso(3, -3);
+        this.windowsOnFace(ctx, slb.x - 6, slb.y - 20, 20, 16, 2, 2);
 
-        // Ventilation units on roof
-        const vp = this.iso(0, -1);
+        // Biotech wing (distinctive curved-roof look)
+        this.box(ctx, 3, 0, 2, 3, 3, ['#d0e8f0', '#b0c8d8', '#90a8b8']);
+        // Hazard stripe on door
+        const btw = this.iso(4, 2);
+        ctx.fillStyle = '#e0c030';
+        ctx.fillRect(btw.x - 4, btw.y - 16, 8, 2);
+        ctx.fillStyle = '#303030';
         for (let i = 0; i < 4; i++) {
+            ctx.fillRect(btw.x - 4 + i * 4, btw.y - 16, 2, 2);
+        }
+
+        // Clean room annex (low, white, with airlock)
+        this.box(ctx, -4, 2, 2, 3, 2, ['#e8ecf0', '#d0d8e0', '#b8c0c8']);
+        // Airlock detail
+        const ar = this.iso(-3, 3);
+        ctx.fillStyle = '#a0b0c0';
+        ctx.fillRect(ar.x - 4, ar.y - 12, 8, 8);
+        ctx.strokeStyle = c.outline;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(ar.x - 4, ar.y - 12, 8, 8);
+
+        // Ventilation units on roof (more)
+        const vp = this.iso(0, -1);
+        for (let i = 0; i < 5; i++) {
             ctx.fillStyle = '#b0b8c0';
-            ctx.fillRect(vp.x + i * 10 - 15, vp.y - 38, 5, 5);
+            ctx.fillRect(vp.x + i * 9 - 18, vp.y - 46, 5, 5);
             ctx.strokeStyle = c.outline;
             ctx.lineWidth = 0.5;
-            ctx.strokeRect(vp.x + i * 10 - 15, vp.y - 38, 5, 5);
+            ctx.strokeRect(vp.x + i * 9 - 18, vp.y - 46, 5, 5);
+            // Spinning fan indicator
+            const fAngle = this.frame * 0.08 + i;
+            ctx.strokeStyle = '#808890';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.arc(vp.x + i * 9 - 15.5, vp.y - 43.5, 1.5, fAngle, fAngle + Math.PI);
+            ctx.stroke();
         }
 
-        // Delivery van
+        // Cold storage (distinctive)
+        this.box(ctx, -6, 0, 2, 2, 2, ['#b0d0e8', '#90b0c8', '#7090a8']);
+        const csP = this.iso(-6, 0);
+        ctx.fillStyle = '#4080b0';
+        ctx.font = '4px monospace';
+        ctx.fillText('-20°C', csP.x - 4, csP.y - 12);
+
+        // Delivery vehicles (cold chain vans)
         const dv = this.iso(6, 4);
         this.vehicle(ctx, dv.x, dv.y, '#e0e4e8', 'left', 16);
+        const dv2 = this.iso(6, 6);
+        this.vehicle(ctx, dv2.x, dv2.y, '#4080b0', 'right', 14);
+        // Ambulance / emergency vehicle
+        const amb = this.iso(-4, 6);
+        this.vehicle(ctx, amb.x, amb.y, '#e0e0e0', 'left', 14);
+        // Red cross on ambulance
+        ctx.fillStyle = '#d04040';
+        ctx.fillRect(amb.x - 2, amb.y - 6, 4, 1);
+        ctx.fillRect(amb.x - 0.5, amb.y - 7.5, 1, 4);
 
-        // Scientists walking
-        for (let i = 0; i < 3; i++) {
-            const sp = this.iso(0 + i * 2, 4 + Math.sin(this.frame * 0.015 + i * 2) * 0.3);
-            this.person(ctx, sp.x, sp.y, '#e0e8f0', true);
+        // Scientists walking (more, lab coat white)
+        for (let i = 0; i < 5; i++) {
+            const sp = this.iso(-1 + i * 1.5, 4 + Math.sin(this.frame * 0.015 + i * 2) * 0.3);
+            this.person(ctx, sp.x, sp.y, i < 3 ? '#e0e8f0' : '#4070a0', true);
         }
 
-        // Garden / green area
-        const gp = this.iso(6, -1);
+        // Garden / green area (larger, with path)
+        const gp = this.iso(7, -1);
         ctx.fillStyle = c.grass;
         ctx.beginPath();
-        ctx.ellipse(gp.x, gp.y, 16, 10, 0, 0, Math.PI * 2);
+        ctx.ellipse(gp.x, gp.y, 18, 12, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = c.outlineLight;
         ctx.lineWidth = 0.6;
@@ -1100,17 +1721,40 @@ export class IsometricScene {
         // Pond
         ctx.fillStyle = c.water;
         ctx.beginPath();
-        ctx.ellipse(gp.x, gp.y + 2, 8, 5, 0, 0, Math.PI * 2);
+        ctx.ellipse(gp.x + 4, gp.y + 2, 8, 5, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = c.outlineLight;
         ctx.stroke();
+        // Path through garden
+        ctx.strokeStyle = '#d0d8e0';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(gp.x - 16, gp.y);
+        ctx.quadraticCurveTo(gp.x - 4, gp.y - 4, gp.x + 8, gp.y - 2);
+        ctx.stroke();
 
-        // Trees around campus
-        for (let i = 0; i < 4; i++) {
-            const tp = this.iso(-6, -2 + i * 2);
-            this.tree(ctx, tp.x, tp.y, 0.7);
+        // Bench in garden
+        ctx.fillStyle = c.trunk;
+        ctx.fillRect(gp.x - 8, gp.y - 6, 10, 2);
+        ctx.fillRect(gp.x - 8, gp.y - 6, 1, 4);
+        ctx.fillRect(gp.x + 1, gp.y - 6, 1, 4);
+
+        // Trees around campus (more varied)
+        for (let i = 0; i < 5; i++) {
+            const tp = this.iso(-7, -3 + i * 1.8);
+            this.tree(ctx, tp.x, tp.y, 0.6 + Math.sin(i * 1.3) * 0.15);
         }
-        this.tree(ctx, gp.x - 12, gp.y - 6, 0.6);
-        this.tree(ctx, gp.x + 10, gp.y - 4, 0.5);
+        this.tree(ctx, gp.x - 14, gp.y - 8, 0.7);
+        this.tree(ctx, gp.x + 12, gp.y - 5, 0.6);
+        this.tree(ctx, gp.x - 6, gp.y + 6, 0.5);
+
+        // Flower beds near entrance
+        const entP = this.iso(-1, 3);
+        this.flowerBed(ctx, entP.x - 14, entP.y - 4, 10, 3);
+        this.flowerBed(ctx, entP.x + 6, entP.y - 4, 10, 3);
+
+        // Flag poles
+        this.flagPole(ctx, lb.x - 24, lb.y + 6, 22, '#4080b0');
+        this.flagPole(ctx, lb.x - 16, lb.y + 6, 22, '#00b894');
     }
 }

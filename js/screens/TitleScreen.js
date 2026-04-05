@@ -25,6 +25,7 @@ export class TitleScreen {
             <div class="title-version">v0.1</div>
 
             <div class="title-logo">
+                <canvas id="hedj-logo-canvas" width="180" height="50" style="margin:0 auto 6px;display:block;"></canvas>
                 <h1>TREASURY<br>MANAGER<br>SIMULATOR</h1>
                 <div class="subtitle">Can you survive the boardroom?</div>
             </div>
@@ -86,6 +87,9 @@ export class TitleScreen {
         this.el.querySelector('#btn-leaderboard').addEventListener('click', () => {
             this.showLeaderboard();
         });
+
+        // Draw Hedj logo
+        this.drawHedjLogo();
 
         // Animate background
         this.animateBackground();
@@ -367,6 +371,110 @@ export class TitleScreen {
             this.app.showToast('Leaderboard exported!', 'success');
         });
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    }
+
+    drawHedjLogo() {
+        const canvas = this.el.querySelector('#hedj-logo-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        const px = 3; // pixel size for retro feel
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Hedj green/teal color scheme
+        const primary = '#00b894';
+        const primaryDark = '#009874';
+        const accent = '#ffcc00';
+
+        // Draw "hedj" in pixel-art block letters
+        // Each letter is defined as a grid of filled cells
+        const letters = {
+            H: [
+                [1,0,0,1],
+                [1,0,0,1],
+                [1,1,1,1],
+                [1,0,0,1],
+                [1,0,0,1],
+            ],
+            E: [
+                [1,1,1,1],
+                [1,0,0,0],
+                [1,1,1,0],
+                [1,0,0,0],
+                [1,1,1,1],
+            ],
+            D: [
+                [1,1,1,0],
+                [1,0,0,1],
+                [1,0,0,1],
+                [1,0,0,1],
+                [1,1,1,0],
+            ],
+            J: [
+                [0,0,0,1],
+                [0,0,0,1],
+                [0,0,0,1],
+                [1,0,0,1],
+                [0,1,1,0],
+            ],
+        };
+
+        const word = ['H', 'E', 'D', 'J'];
+        const letterW = 4;
+        const letterH = 5;
+        const gap = 1; // gap between letters in grid cells
+        const totalW = word.length * (letterW + gap) - gap;
+        const startX = Math.floor((w - totalW * px) / 2);
+        const startY = Math.floor((h - letterH * px) / 2) - 4;
+
+        // Shadow pass
+        for (let li = 0; li < word.length; li++) {
+            const grid = letters[word[li]];
+            const ox = startX + li * (letterW + gap) * px;
+            for (let r = 0; r < letterH; r++) {
+                for (let c = 0; c < letterW; c++) {
+                    if (grid[r][c]) {
+                        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                        ctx.fillRect(ox + c * px + 1, startY + r * px + 1, px, px);
+                    }
+                }
+            }
+        }
+
+        // Main pass
+        for (let li = 0; li < word.length; li++) {
+            const grid = letters[word[li]];
+            const ox = startX + li * (letterW + gap) * px;
+            for (let r = 0; r < letterH; r++) {
+                for (let c = 0; c < letterW; c++) {
+                    if (grid[r][c]) {
+                        // Top highlight
+                        ctx.fillStyle = r === 0 ? '#33ddb0' : primary;
+                        ctx.fillRect(ox + c * px, startY + r * px, px, px);
+                        // Bottom edge darken
+                        if (r === letterH - 1 || (r < letterH - 1 && !grid[r + 1][c])) {
+                            ctx.fillStyle = primaryDark;
+                            ctx.fillRect(ox + c * px, startY + r * px + px - 1, px, 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Underline accent bar
+        const barY = startY + letterH * px + 3;
+        ctx.fillStyle = accent;
+        ctx.fillRect(startX, barY, totalW * px, 2);
+
+        // "FINANCIAL SERVICES" subtitle below
+        ctx.font = '7px monospace';
+        ctx.fillStyle = '#88aacc';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('FINANCIAL SERVICES', w / 2, barY + 5);
+        ctx.textAlign = 'left';
     }
 
     animateBackground() {
