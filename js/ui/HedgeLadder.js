@@ -1,5 +1,5 @@
 // HedgeLadder — multi-quarter hedge tenor grid UI
-// Shows Q+1 through Q+8 coverage buckets with adjustable notional per tenor
+// Each quarter row has its own inline slider for quick % adjustment
 
 export class HedgeLadder {
     /**
@@ -14,15 +14,17 @@ export class HedgeLadder {
         this.exposure = options.exposure || null;
         this.maxTenor = options.maxTenor || 8;
         this.onChange = options.onChange || null;
-        this.completedQuarters = options.completedQuarters || 0; // quarters already played
+        this.completedQuarters = options.completedQuarters || 0;
 
         // Coverage per tenor bucket: { 1: 0.5, 2: 0.3, ... } = 50% Q+1, 30% Q+2 etc.
         this.buckets = {};
+        // Existing coverage from already-booked hedges (read-only baseline)
+        this.existingBuckets = {};
         for (let i = 1; i <= this.maxTenor; i++) {
             this.buckets[i] = 0;
+            this.existingBuckets[i] = 0;
         }
 
-        // Currently selected tenor for trade execution
         this.selectedTenor = 1;
     }
 
@@ -32,19 +34,38 @@ export class HedgeLadder {
      */
     setExistingCoverage(existing) {
         for (let i = 1; i <= this.maxTenor; i++) {
+            this.existingBuckets[i] = existing[i] || 0;
             this.buckets[i] = existing[i] || 0;
         }
         this.render();
     }
 
     /**
-     * Get the currently selected tenor and percentage.
+     * Get the currently selected tenor and percentage (for trade preview).
      */
     getSelection() {
         return {
             tenor: this.selectedTenor,
             pct: this.buckets[this.selectedTenor] || 0
         };
+    }
+
+    /**
+     * Get all changed buckets — tenors where the slider differs from existing coverage.
+     * Returns array of { tenor, pct, deltaPct } for each tenor that has new hedging to book.
+     */
+    getChangedBuckets() {
+        const changes = [];
+        for (let t = 1; t <= this.maxTenor; t++) {
+            if (t <= this.completedQuarters) continue;
+            const current = this.buckets[t] || 0;
+            const existing = this.existingBuckets[t] || 0;
+            const delta = current - existing;
+            if (Math.abs(delta) > 0.001) {
+                changes.push({ tenor: t, pct: current, deltaPct: delta });
+            }
+        }
+        return changes;
     }
 
     /**
@@ -61,90 +82,120 @@ export class HedgeLadder {
 
         let html = `
             <div class="hedge-ladder">
-                <div class="hedge-ladder-header">
+                <div class="hedge-ladder-header" style="display:grid;grid-template-columns:36px 1fr 44px 48px;gap:4px;align-items:center;padding:2px 4px;">
                     <span class="pixel-text" style="font-size:7px;color:var(--text-secondary)">TENOR</span>
                     <span class="pixel-text" style="font-size:7px;color:var(--text-secondary)">COVERAGE</span>
-                    <span class="pixel-text" style="font-size:7px;color:var(--text-secondary)">NOTIONAL</span>
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-secondary);text-align:right">%</span>
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-secondary);text-align:right">NOTIONAL</span>
                 </div>
         `;
 
         for (let t = 1; t <= this.maxTenor; t++) {
             const pct = this.buckets[t] || 0;
+            const existingPct = this.existingBuckets[t] || 0;
             const pctDisplay = Math.round(pct * 100);
             const notional = quarterlyNotional * pct;
-            const isSelected = t === this.selectedTenor;
-            const barWidth = Math.min(100, pct * 100 / 2); // scale to 200% max
             const isPast = t <= this.completedQuarters;
+            const isSelected = t === this.selectedTenor;
+            const barWidth = Math.min(100, pct * 100 / 2); // scale bar to 200% max
+            const hasChange = Math.abs(pct - existingPct) > 0.001;
 
-            // Color coding: green if covered, amber if partial, grey if none
-            const barColor = isPast ? 'var(--text-muted)' : pct >= 0.5 ? 'var(--pnl-positive)' : pct > 0 ? 'var(--gold)' : 'var(--border-inner)';
+            const barColor = isPast ? 'var(--text-muted)'
+                : pct >= 0.5 ? 'var(--pnl-positive)'
+                : pct > 0 ? 'var(--gold)'
+                : 'var(--border-inner)';
 
-            html += `
-                <div class="hedge-ladder-row ${isSelected ? 'selected' : ''} ${isPast ? 'past' : ''}" data-tenor="${t}" ${isPast ? 'style="opacity:0.4;text-decoration:line-through;"' : ''}>
-                    <span class="hedge-ladder-tenor">Q+${t}</span>
-                    <div class="hedge-ladder-bar-container">
-                        <div class="hedge-ladder-bar" style="width:${barWidth}%;background:${barColor};"></div>
-                        <span class="hedge-ladder-pct">${pctDisplay}%</span>
+            if (isPast) {
+                html += `
+                    <div class="hedge-ladder-row past" style="display:grid;grid-template-columns:36px 1fr 44px 48px;gap:4px;align-items:center;padding:3px 4px;opacity:0.35;text-decoration:line-through;">
+                        <span class="hedge-ladder-tenor pixel-text" style="font-size:8px;">Q+${t}</span>
+                        <div class="hedge-ladder-bar-container" style="position:relative;height:14px;background:var(--panel-bg);border-radius:2px;overflow:hidden;">
+                            <div style="height:100%;width:${barWidth}%;background:${barColor};border-radius:2px;"></div>
+                        </div>
+                        <span class="pixel-text" style="font-size:8px;text-align:right;color:var(--text-muted);">${pctDisplay}%</span>
+                        <span class="pixel-text" style="font-size:7px;text-align:right;color:var(--text-muted);">—</span>
                     </div>
-                    <span class="hedge-ladder-notional">${isPast ? '—' : this.formatCompact(notional)}</span>
-                </div>
-            `;
+                `;
+            } else {
+                html += `
+                    <div class="hedge-ladder-row ${isSelected ? 'selected' : ''}" data-tenor="${t}"
+                         style="display:grid;grid-template-columns:36px 1fr 44px 48px;gap:4px;align-items:center;padding:3px 4px;cursor:pointer;${hasChange ? 'background:rgba(255,204,0,0.08);' : ''}">
+                        <span class="hedge-ladder-tenor pixel-text" style="font-size:8px;">Q+${t}</span>
+                        <div style="position:relative;">
+                            <input type="range" class="ladder-row-slider" data-tenor="${t}"
+                                min="0" max="200" step="10" value="${pctDisplay}"
+                                style="width:100%;height:18px;cursor:pointer;">
+                        </div>
+                        <span class="hedge-ladder-pct pixel-text" data-tenor-pct="${t}" style="font-size:8px;text-align:right;color:${hasChange ? 'var(--gold)' : 'var(--text-primary)'};">${pctDisplay}%</span>
+                        <span class="hedge-ladder-notional pixel-text" data-tenor-notional="${t}" style="font-size:7px;text-align:right;color:var(--text-secondary);">${this.formatCompact(notional)}</span>
+                    </div>
+                `;
+            }
         }
 
-        html += `
-            </div>
-            <div class="hedge-ladder-controls" style="margin-top:6px;">
-                <div class="hedge-slider-label">
-                    <span>Q+${this.selectedTenor} HEDGE</span>
-                    <span class="hedge-slider-value" id="ladder-pct-label">${Math.round((this.buckets[this.selectedTenor] || 0) * 100)}%</span>
-                </div>
-                <input type="range" id="ladder-slider" min="0" max="200" value="${Math.round((this.buckets[this.selectedTenor] || 0) * 100)}" step="10">
-            </div>
-        `;
+        html += `</div>`;
 
         this.container.innerHTML = html;
         this.bindEvents();
     }
 
     bindEvents() {
-        // Row click to select tenor (skip past quarters)
-        this.container.querySelectorAll('.hedge-ladder-row').forEach(row => {
-            row.addEventListener('click', () => {
+        // Row click to select tenor (for trade preview)
+        this.container.querySelectorAll('.hedge-ladder-row:not(.past)').forEach(row => {
+            row.addEventListener('click', (e) => {
+                // Don't select if clicking the slider itself
+                if (e.target.classList.contains('ladder-row-slider')) return;
                 const tenor = parseInt(row.dataset.tenor);
-                if (tenor <= this.completedQuarters) return; // can't select past quarters
+                if (!tenor || tenor <= this.completedQuarters) return;
                 this.selectedTenor = tenor;
-                this.render();
+                // Update selected highlight
+                this.container.querySelectorAll('.hedge-ladder-row').forEach(r => r.classList.remove('selected'));
+                row.classList.add('selected');
+                if (this.onChange) {
+                    this.onChange({ tenor, pct: this.buckets[tenor] || 0 });
+                }
             });
         });
 
-        // Slider to adjust selected tenor
-        const slider = this.container.querySelector('#ladder-slider');
-        if (slider) {
+        // Per-row sliders
+        this.container.querySelectorAll('.ladder-row-slider').forEach(slider => {
             slider.addEventListener('input', (e) => {
+                const tenor = parseInt(slider.dataset.tenor);
                 const pct = parseInt(e.target.value) / 100;
-                this.buckets[this.selectedTenor] = pct;
-                const label = this.container.querySelector('#ladder-pct-label');
-                if (label) label.textContent = `${e.target.value}%`;
+                this.buckets[tenor] = pct;
+                this.selectedTenor = tenor;
 
-                // Update the bar in the row
-                const row = this.container.querySelector(`.hedge-ladder-row[data-tenor="${this.selectedTenor}"]`);
-                if (row) {
-                    const bar = row.querySelector('.hedge-ladder-bar');
-                    const pctSpan = row.querySelector('.hedge-ladder-pct');
-                    const notionalSpan = row.querySelector('.hedge-ladder-notional');
-                    if (bar) {
-                        bar.style.width = `${Math.min(100, pct * 100 / 2)}%`;
-                        bar.style.background = pct >= 0.5 ? 'var(--pnl-positive)' : pct > 0 ? 'var(--gold)' : 'var(--border-inner)';
-                    }
-                    if (pctSpan) pctSpan.textContent = `${e.target.value}%`;
-                    if (notionalSpan) notionalSpan.textContent = this.formatCompact((this.exposure?.quarterlyNotional || 0) * pct);
+                const existingPct = this.existingBuckets[tenor] || 0;
+                const hasChange = Math.abs(pct - existingPct) > 0.001;
+
+                // Update the % label
+                const pctLabel = this.container.querySelector(`[data-tenor-pct="${tenor}"]`);
+                if (pctLabel) {
+                    pctLabel.textContent = `${e.target.value}%`;
+                    pctLabel.style.color = hasChange ? 'var(--gold)' : 'var(--text-primary)';
                 }
+
+                // Update notional label
+                const notLabel = this.container.querySelector(`[data-tenor-notional="${tenor}"]`);
+                if (notLabel) {
+                    notLabel.textContent = this.formatCompact((this.exposure?.quarterlyNotional || 0) * pct);
+                }
+
+                // Highlight row if changed
+                const row = slider.closest('.hedge-ladder-row');
+                if (row) {
+                    row.style.background = hasChange ? 'rgba(255,204,0,0.08)' : '';
+                }
+
+                // Update selected highlight
+                this.container.querySelectorAll('.hedge-ladder-row').forEach(r => r.classList.remove('selected'));
+                if (row) row.classList.add('selected');
 
                 if (this.onChange) {
-                    this.onChange({ tenor: this.selectedTenor, pct });
+                    this.onChange({ tenor, pct });
                 }
             });
-        }
+        });
     }
 
     formatCompact(amount) {

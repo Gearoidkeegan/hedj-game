@@ -601,9 +601,11 @@ export class DashboardScreen {
 
     initHedgeLadder(exposure) {
         const container = this.el.querySelector('#hedge-ladder-container');
+        const state = gameState.get();
         this.hedgeLadder = new HedgeLadder(container, {
             exposure,
             maxTenor: 8,
+            completedQuarters: state.totalQuartersPlayed,
             onChange: () => this.renderTradePreview()
         });
         this.hedgeLadder.render();
@@ -727,11 +729,12 @@ export class DashboardScreen {
 
         const state = gameState.get();
         const exp = this.selectedExposure;
-        const { tenor, pct } = this.hedgeLadder.getSelection();
-        const notional = exp.quarterlyNotional * pct;
 
-        if (notional <= 0) {
-            this.app.showToast('Set a hedge amount first', 'warning');
+        // Get all tenor buckets that changed from existing coverage
+        const changes = this.hedgeLadder.getChangedBuckets();
+
+        if (changes.length === 0) {
+            this.app.showToast('Adjust hedge sliders to set coverage', 'warning');
             return;
         }
 
@@ -741,71 +744,81 @@ export class DashboardScreen {
             : 0;
         const currentRate = (livePrice > 0) ? livePrice : (state.currentRates[exp.underlying] || 0);
 
-        // Check hedge limits
-        const currentHedgeRatio = gameLoop.getHedgeRatio(exp.underlying);
-        if (currentHedgeRatio + pct > GAME_CONFIG.MAX_HEDGE_RATIO) {
-            this.app.showToast(`Cannot exceed ${GAME_CONFIG.MAX_HEDGE_RATIO * 100}% hedge ratio`, 'warning');
-            return;
-        }
-
-        // Calculate credit usage based on product type
-        // Caps/Options: no credit limit usage
-        // Swaps: notional / 4 (quarterly approximation)
-        // Forwards/Futures: full notional
         const productType = this.selectedProductId?.split('_').pop() || 'forward';
-        let creditUsage = notional;
-        if (productType === 'option' || productType === 'cap') {
-            creditUsage = 0;
-        } else if (productType === 'swap') {
-            creditUsage = notional / 4;
-        }
+        let totalNotionalBooked = 0;
+        let totalPremium = 0;
+        let tradesBooked = 0;
 
-        // Check bank credit
-        if (this.selectedBankId && creditUsage > 0) {
-            const avail = bankEngine.getAvailableCredit(this.selectedBankId);
-            if (creditUsage > avail) {
-                this.app.showToast('Exceeds bank credit limit', 'warning');
-                return;
+        for (const { tenor, deltaPct } of changes) {
+            if (deltaPct <= 0) continue; // only book new hedging (unwinding handled separately)
+
+            const notional = exp.quarterlyNotional * deltaPct;
+            if (notional <= 0) continue;
+
+            // Check hedge limits
+            const currentHedgeRatio = gameLoop.getHedgeRatio(exp.underlying);
+            if (currentHedgeRatio + deltaPct > GAME_CONFIG.MAX_HEDGE_RATIO) {
+                this.app.showToast(`Cannot exceed ${GAME_CONFIG.MAX_HEDGE_RATIO * 100}% hedge ratio`, 'warning');
+                break;
             }
+
+            // Credit usage
+            let creditUsage = notional;
+            if (productType === 'option' || productType === 'cap') {
+                creditUsage = 0;
+            } else if (productType === 'swap') {
+                creditUsage = notional / 4;
+            }
+
+            if (this.selectedBankId && creditUsage > 0) {
+                const avail = bankEngine.getAvailableCredit(this.selectedBankId);
+                if (creditUsage > avail) {
+                    this.app.showToast('Exceeds bank credit limit', 'warning');
+                    break;
+                }
+            }
+
+            // Create trade
+            const hedge = hedgingEngine.createTrade({
+                exposure: exp,
+                productId: this.selectedProductId || 'fx_forward',
+                notional,
+                tenorQuarters: tenor,
+                spotRate: currentRate,
+                rBase: 0.03,
+                rQuote: 0.04,
+                currentQuarter: state.totalQuartersPlayed,
+                bankId: this.selectedBankId
+            });
+
+            if (hedge.premiumPaid > 0) {
+                gameState.update({ cashBalance: gameState.get().cashBalance - hedge.premiumPaid });
+                totalPremium += hedge.premiumPaid;
+            }
+
+            const tradingCost = hedgingEngine.getTradingCost(hedge.productType, notional);
+            this.tradesThisQuarter++;
+            this.tradingCostsThisQuarter += tradingCost;
+
+            if (this.selectedBankId && creditUsage > 0) {
+                bankEngine.allocateTrade(this.selectedBankId, hedge.id, creditUsage);
+            }
+
+            gameState.addHedge(hedge);
+            totalNotionalBooked += notional;
+            tradesBooked++;
         }
 
-        // Create trade via HedgingEngine
-        const hedge = hedgingEngine.createTrade({
-            exposure: exp,
-            productId: this.selectedProductId || 'fx_forward',
-            notional,
-            tenorQuarters: tenor,
-            spotRate: currentRate,
-            rBase: 0.03,
-            rQuote: 0.04,
-            currentQuarter: state.totalQuartersPlayed,
-            bankId: this.selectedBankId
-        });
+        if (tradesBooked > 0) {
+            soundFX.tradeExecute();
 
-        // Deduct premium if applicable
-        if (hedge.premiumPaid > 0) {
-            gameState.update({ cashBalance: state.cashBalance - hedge.premiumPaid });
-        }
-
-        // Trading cost
-        const tradingCost = hedgingEngine.getTradingCost(hedge.productType, notional);
-        this.tradesThisQuarter++;
-        this.tradingCostsThisQuarter += tradingCost;
-
-        // Allocate to bank (using credit usage, not full notional)
-        if (this.selectedBankId && creditUsage > 0) {
-            bankEngine.allocateTrade(this.selectedBankId, hedge.id, creditUsage);
-        }
-
-        gameState.addHedge(hedge);
-        soundFX.tradeExecute();
-
-        // Warn if over-trading
-        if (this.tradesThisQuarter > 3) {
-            this.app.showToast('Excessive trading! Costs are mounting.', 'warning');
-        } else {
-            const premNote = hedge.premiumPaid > 0 ? ` (premium: ${formatCurrency(hedge.premiumPaid, '', true)})` : '';
-            this.app.showToast(`${exp.underlying} ${hedge.productType} executed: ${formatCurrency(notional, '', true)}${premNote}`, 'success');
+            if (this.tradesThisQuarter > 3) {
+                this.app.showToast('Excessive trading! Costs are mounting.', 'warning');
+            } else {
+                const premNote = totalPremium > 0 ? ` (premium: ${formatCurrency(totalPremium, '', true)})` : '';
+                const tenorNote = tradesBooked > 1 ? ` across ${tradesBooked} tenors` : '';
+                this.app.showToast(`${exp.underlying} hedges booked: ${formatCurrency(totalNotionalBooked, '', true)}${tenorNote}${premNote}`, 'success');
+            }
         }
 
         // Refresh
@@ -815,7 +828,7 @@ export class DashboardScreen {
         this.renderBanksView();
         this.updateTradeCountBadge();
 
-        // Re-select to refresh hedge ratio
+        // Re-select to refresh hedge ratios in ladder
         this.selectExposure(exp.underlying);
     }
 
