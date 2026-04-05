@@ -995,21 +995,44 @@ export class DashboardScreen {
             return;
         }
 
-        let html = '<table class="data-table"><thead><tr><th>TYPE</th><th>UNDERLYING</th><th>NOTIONAL</th><th>RATE</th><th>MTM</th><th>BANK</th><th>EXPIRY</th></tr></thead><tbody>';
+        // Group hedges by expiry quarter
+        const byQuarter = {};
         for (const hedge of activeHedges) {
-            const mtm = hedge.currentMtm || 0;
-            const bank = bankEngine.getActiveBanks().find(b => b.id === hedge.bankId);
-            html += `<tr>
-                <td><span class="badge badge-${hedge.assetClass || 'fx'}">${hedge.productType}</span></td>
-                <td>${hedge.underlying}</td>
-                <td>${formatCurrency(hedge.notional, '', true)}</td>
-                <td>${formatRate(hedge.contractRate, 4, hedge.assetClass)}</td>
-                <td class="${pnlClass(mtm)}">${formatPnL(mtm)}</td>
-                <td style="color:var(--text-muted);font-size:12px;">${bank?.shortName || '—'}</td>
-                <td>Q+${Math.max(0, hedge.maturityQuarter - state.totalQuartersPlayed)}</td>
-            </tr>`;
+            const qRel = Math.max(0, hedge.maturityQuarter - state.totalQuartersPlayed);
+            if (!byQuarter[qRel]) byQuarter[qRel] = [];
+            byQuarter[qRel].push(hedge);
         }
-        html += '</tbody></table>';
+        const sortedQuarters = Object.keys(byQuarter).map(Number).sort((a, b) => a - b);
+
+        let totalMtm = 0;
+        let html = '';
+
+        for (const q of sortedQuarters) {
+            const hedges = byQuarter[q];
+            html += `<div class="pixel-text" style="font-size:7px;color:var(--gold);margin:6px 0 2px;border-bottom:1px solid var(--border-inner);padding-bottom:2px;">Q+${q} EXPIRY</div>`;
+            html += '<table class="data-table" style="margin-bottom:4px;"><thead><tr><th>TYPE</th><th>UNDERLYING</th><th>NOTIONAL</th><th>RATE</th><th>MTM</th><th>BANK</th></tr></thead><tbody>';
+            for (const hedge of hedges) {
+                const mtm = hedge.currentMtm || 0;
+                totalMtm += mtm;
+                const bank = bankEngine.getActiveBanks().find(b => b.id === hedge.bankId);
+                html += `<tr>
+                    <td><span class="badge badge-${hedge.assetClass || 'fx'}">${hedge.productType}</span></td>
+                    <td>${hedge.underlying}</td>
+                    <td>${formatCurrency(hedge.notional, '', true)}</td>
+                    <td>${formatRate(hedge.contractRate, 4, hedge.assetClass)}</td>
+                    <td class="${pnlClass(mtm)}">${formatPnL(mtm)}</td>
+                    <td style="color:var(--text-muted);font-size:12px;">${bank?.shortName || '—'}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+        }
+
+        // Total summary
+        html += `<div style="text-align:right;padding:4px;border-top:1px solid var(--border);">
+            <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">TOTAL HEDGES: ${activeHedges.length}</span>
+            <span class="pixel-text ${pnlClass(totalMtm)}" style="font-size:8px;margin-left:8px;">MTM: ${formatPnL(totalMtm)}</span>
+        </div>`;
+
         container.innerHTML = html;
     }
 
