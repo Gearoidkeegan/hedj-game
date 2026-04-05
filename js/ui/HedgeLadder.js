@@ -14,6 +14,7 @@ export class HedgeLadder {
         this.exposure = options.exposure || null;
         this.maxTenor = options.maxTenor || 8;
         this.onChange = options.onChange || null;
+        this.completedQuarters = options.completedQuarters || 0; // quarters already played
 
         // Coverage per tenor bucket: { 1: 0.5, 2: 0.3, ... } = 50% Q+1, 30% Q+2 etc.
         this.buckets = {};
@@ -72,19 +73,20 @@ export class HedgeLadder {
             const pctDisplay = Math.round(pct * 100);
             const notional = quarterlyNotional * pct;
             const isSelected = t === this.selectedTenor;
-            const barWidth = Math.min(100, pct * 100);
+            const barWidth = Math.min(100, pct * 100 / 2); // scale to 200% max
+            const isPast = t <= this.completedQuarters;
 
             // Color coding: green if covered, amber if partial, grey if none
-            const barColor = pct >= 0.5 ? 'var(--pnl-positive)' : pct > 0 ? 'var(--gold)' : 'var(--border-inner)';
+            const barColor = isPast ? 'var(--text-muted)' : pct >= 0.5 ? 'var(--pnl-positive)' : pct > 0 ? 'var(--gold)' : 'var(--border-inner)';
 
             html += `
-                <div class="hedge-ladder-row ${isSelected ? 'selected' : ''}" data-tenor="${t}">
+                <div class="hedge-ladder-row ${isSelected ? 'selected' : ''} ${isPast ? 'past' : ''}" data-tenor="${t}" ${isPast ? 'style="opacity:0.4;text-decoration:line-through;"' : ''}>
                     <span class="hedge-ladder-tenor">Q+${t}</span>
                     <div class="hedge-ladder-bar-container">
                         <div class="hedge-ladder-bar" style="width:${barWidth}%;background:${barColor};"></div>
                         <span class="hedge-ladder-pct">${pctDisplay}%</span>
                     </div>
-                    <span class="hedge-ladder-notional">${this.formatCompact(notional)}</span>
+                    <span class="hedge-ladder-notional">${isPast ? '—' : this.formatCompact(notional)}</span>
                 </div>
             `;
         }
@@ -96,7 +98,7 @@ export class HedgeLadder {
                     <span>Q+${this.selectedTenor} HEDGE</span>
                     <span class="hedge-slider-value" id="ladder-pct-label">${Math.round((this.buckets[this.selectedTenor] || 0) * 100)}%</span>
                 </div>
-                <input type="range" id="ladder-slider" min="0" max="100" value="${Math.round((this.buckets[this.selectedTenor] || 0) * 100)}" step="10">
+                <input type="range" id="ladder-slider" min="0" max="200" value="${Math.round((this.buckets[this.selectedTenor] || 0) * 100)}" step="10">
             </div>
         `;
 
@@ -105,10 +107,12 @@ export class HedgeLadder {
     }
 
     bindEvents() {
-        // Row click to select tenor
+        // Row click to select tenor (skip past quarters)
         this.container.querySelectorAll('.hedge-ladder-row').forEach(row => {
             row.addEventListener('click', () => {
-                this.selectedTenor = parseInt(row.dataset.tenor);
+                const tenor = parseInt(row.dataset.tenor);
+                if (tenor <= this.completedQuarters) return; // can't select past quarters
+                this.selectedTenor = tenor;
                 this.render();
             });
         });
@@ -129,7 +133,7 @@ export class HedgeLadder {
                     const pctSpan = row.querySelector('.hedge-ladder-pct');
                     const notionalSpan = row.querySelector('.hedge-ladder-notional');
                     if (bar) {
-                        bar.style.width = `${Math.min(100, pct * 100)}%`;
+                        bar.style.width = `${Math.min(100, pct * 100 / 2)}%`;
                         bar.style.background = pct >= 0.5 ? 'var(--pnl-positive)' : pct > 0 ? 'var(--gold)' : 'var(--border-inner)';
                     }
                     if (pctSpan) pctSpan.textContent = `${e.target.value}%`;

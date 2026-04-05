@@ -60,7 +60,7 @@ export class GameOverScreen {
                 <div class="panel" style="border-color:var(--cyan);margin-bottom:16px;max-width:500px;">
                     <div class="readable-text" style="font-size:16px;color:var(--cyan);text-align:center;">
                         Perfect policy compliance throughout your tenure.
-                        <br>The board may grumble, but your job was never at risk.
+                        <br>The board may grumble, but you followed their direction the whole way through.
                     </div>
                 </div>
             `;

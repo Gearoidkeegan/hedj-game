@@ -80,17 +80,17 @@ class GameLoopController {
         }];
         gameState.update({ rateHistory });
 
-        // Check for events, then board, then summary
+        // Check for events, then summary (results), then board (feedback)
         if (eventEngine.shouldFireEvent()) {
             const event = eventEngine.selectEvent();
             if (event) {
                 gameState.update({ activeEvents: [event] });
                 this.setPhase(PHASE.EVENT);
             } else {
-                this.setPhase(PHASE.BOARD);
+                this.setPhase(PHASE.SUMMARY);
             }
         } else {
-            this.setPhase(PHASE.BOARD);
+            this.setPhase(PHASE.SUMMARY);
         }
     }
 
@@ -234,7 +234,7 @@ class GameLoopController {
         return true;
     }
 
-    // Event phase complete — player has chosen, move to board
+    // Event phase complete — player has chosen, move to summary
     completeEvent(event, choiceId) {
         const result = eventEngine.processChoice(event, choiceId);
         // Store the event result for the board to reference
@@ -242,16 +242,18 @@ class GameLoopController {
             activeEvents: [],
             lastEventResult: result
         });
-        this.setPhase(PHASE.BOARD);
-    }
-
-    // Board review phase complete — move to summary
-    completeBoardReview() {
         this.setPhase(PHASE.SUMMARY);
     }
 
-    // Summary phase complete — advance or end game
+    // Summary phase complete — move to board review
     completeSummary() {
+        this.setPhase(PHASE.BOARD);
+    }
+
+    // Board review phase complete — advance or end game
+    completeBoardReview() {
+        // Clear event result now that board has seen it
+        gameState.update({ lastEventResult: null });
         gameState.advanceQuarter();
         const state = gameState.get();
 

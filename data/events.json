@@ -107,7 +107,7 @@
             "type": "instant",
             "category": "universal",
             "title": "Revenue Warning",
-            "description": "Sales have come in 20% below forecast this quarter. Your hedge book may now be over-hedged relative to actual exposure.",
+            "description": "Sales have come in 20% below forecast this quarter. Your hedge book may now be over-hedged relative to actual exposure. {hedge_mtm}",
             "choices": [
                 {
                     "id": "unwind_some",

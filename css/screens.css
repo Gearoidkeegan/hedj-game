@@ -548,7 +548,7 @@
 .event-description {
     font-family: var(--font-readable);
     font-size: 16px;
-    color: var(--text-primary);
+    color: inherit;
     line-height: 1.6;
     min-height: 48px;
 }

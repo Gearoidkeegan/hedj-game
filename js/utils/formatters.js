@@ -12,7 +12,11 @@ export function formatCurrency(amount, currency = 'USD', compact = false) {
     return `${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-export function formatRate(rate, decimals = 4) {
+export function formatRate(rate, decimals = 4, assetType = null) {
+    if (assetType === 'ir') {
+        // Interest rates: display as percentage (e.g. 0.035 → 3.50%)
+        return `${(rate * 100).toFixed(2)}%`;
+    }
     return rate.toFixed(decimals);
 }
 

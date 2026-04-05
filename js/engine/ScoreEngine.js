@@ -64,8 +64,9 @@ class ScoreEngineController {
             complianceScore * weights.policyCompliance +
             riskAdjScore * weights.riskAdjusted;
 
-        // Perfect compliance guarantee: minimum C grade
-        const minScore = state.perfectCompliance ? 60 : 0;
+        // Perfect compliance bonus: adds up to 10 points, but does NOT guarantee a minimum grade
+        // Previously this guaranteed C (60), which was too generous for catastrophic failures
+        const complianceBonus = state.perfectCompliance ? Math.min(10, 100 - total) : 0;
 
         return {
             pnl: pnlScore,
@@ -76,7 +77,8 @@ class ScoreEngineController {
             tradingCostPenalty,
             diversificationBonus,
             directionPenalty,
-            total: Math.max(minScore, total)
+            complianceBonus,
+            total: Math.min(100, total + complianceBonus)
         };
     }
 

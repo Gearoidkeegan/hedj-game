@@ -215,9 +215,47 @@
         height: 120px !important;
     }
 
-    /* Setup screen panels */
+    /* Setup screen — scrollable on mobile */
+    .setup-screen {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 24px;
+    }
+
     .setup-screen .panel {
         max-width: 100%;
+    }
+
+    .setup-bottom {
+        position: relative;
+        padding-bottom: 16px;
+    }
+
+    .setup-fields label {
+        font-size: 9px;
+    }
+
+    .setup-fields input {
+        font-size: 16px; /* prevents iOS zoom on focus */
+        min-height: 44px;
+    }
+
+    .setup-actions {
+        padding: 8px 0;
+    }
+
+    .setup-actions .btn {
+        min-height: 48px;
+        font-size: 12px;
+    }
+
+    /* Readable text bigger on mobile */
+    .readable-text {
+        font-size: 15px;
+    }
+
+    .industry-detail-panel .readable-text {
+        font-size: 14px;
     }
 }
 

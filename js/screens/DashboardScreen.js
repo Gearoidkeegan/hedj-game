@@ -285,7 +285,7 @@ export class DashboardScreen {
                 const rateSpan = expRow.querySelector('.exposure-detail + span span');
                 if (rateSpan) {
                     rateSpan.className = rateClass;
-                    rateSpan.textContent = formatRate(livePrice, decimals);
+                    rateSpan.textContent = formatRate(livePrice, decimals, exp.type);
                 }
             }
         }
@@ -303,7 +303,7 @@ export class DashboardScreen {
                         const decimals = exp.type === 'ir' ? 4 : (exp.underlying.includes('JPY') ? 2 : 4);
                         const budget = state.budgetRates[underlying] || 0;
                         const diff = budget > 0 ? (livePrice - budget) / budget : 0;
-                        cells[1].textContent = formatRate(livePrice, decimals);
+                        cells[1].textContent = formatRate(livePrice, decimals, exp.type);
                         cells[3].textContent = `${(diff * 100).toFixed(2)}%`;
                         cells[3].className = diff >= 0 ? 'pnl-positive' : 'pnl-negative';
                     }
@@ -320,8 +320,8 @@ export class DashboardScreen {
                 const halfSpread = livePrice * (spreadBps / 10000);
                 const buyBtn = dirContainer.querySelector('#btn-direction-buy');
                 const sellBtn = dirContainer.querySelector('#btn-direction-sell');
-                if (buyBtn) buyBtn.textContent = `BUY @ ${formatRate(livePrice + halfSpread, 4)}`;
-                if (sellBtn) sellBtn.textContent = `SELL @ ${formatRate(livePrice - halfSpread, 4)}`;
+                if (buyBtn) buyBtn.textContent = `BUY @ ${formatRate(livePrice + halfSpread, 4, exp.type)}`;
+                if (sellBtn) sellBtn.textContent = `SELL @ ${formatRate(livePrice - halfSpread, 4, exp.type)}`;
             }
         }
     }
@@ -409,10 +409,10 @@ export class DashboardScreen {
                 </div>
                 <div style="display:flex;gap:8px;justify-content:center;">
                     <button class="btn" id="btn-direction-buy" style="min-width:100px;">
-                        BUY @ ${formatRate(ask, 4)}
+                        BUY @ ${formatRate(ask, 4, exposure.type)}
                     </button>
                     <button class="btn" id="btn-direction-sell" style="min-width:100px;">
-                        SELL @ ${formatRate(bid, 4)}
+                        SELL @ ${formatRate(bid, 4, exposure.type)}
                     </button>
                 </div>
             </div>
@@ -699,7 +699,7 @@ export class DashboardScreen {
                 </div>
                 <div style="display:flex;justify-content:space-between;">
                     <span style="color:var(--text-muted)">Rate:</span>
-                    <span style="color:var(--cyan)">${formatRate(contractRate, 4)}</span>
+                    <span style="color:var(--cyan)">${formatRate(contractRate, 4, exp.type)}</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;">
                     <span style="color:var(--text-muted)">Tenor:</span>
@@ -876,7 +876,7 @@ export class DashboardScreen {
                     <span class="exposure-underlying">${exp.underlying}</span>
                     <span class="exposure-detail">${exp.description}</span>
                     <span class="readable-text" style="min-width:70px;text-align:right">
-                        <span class="${rateClass}">${formatRate(currentRate, decimals)}</span>
+                        <span class="${rateClass}">${formatRate(currentRate, decimals, exp.type)}</span>
                     </span>
                     <span class="exposure-hedge-ratio">
                         <span class="pixel-text" style="font-size:8px;color:${hedgeRatio >= 0.3 ? 'var(--pnl-positive)' : 'var(--text-muted)'}">${formatPercent(hedgeRatio, 0)}</span>
@@ -963,8 +963,8 @@ export class DashboardScreen {
             const decimals = exp.type === 'ir' ? 4 : (exp.underlying.includes('JPY') ? 2 : 4);
             html += `<tr>
                 <td><span class="exposure-type-badge ${exp.type}" style="margin-right:4px">${exp.type}</span>${exp.underlying}</td>
-                <td>${formatRate(current, decimals)}</td>
-                <td style="color:var(--text-muted)">${formatRate(budget, decimals)}</td>
+                <td>${formatRate(current, decimals, exp.type)}</td>
+                <td style="color:var(--text-muted)">${formatRate(budget, decimals, exp.type)}</td>
                 <td class="${diff >= 0 ? 'pnl-positive' : 'pnl-negative'}">${(diff * 100).toFixed(2)}%</td>
             </tr>`;
         }
@@ -990,7 +990,7 @@ export class DashboardScreen {
                 <td><span class="badge badge-${hedge.assetClass || 'fx'}">${hedge.productType}</span></td>
                 <td>${hedge.underlying}</td>
                 <td>${formatCurrency(hedge.notional, '', true)}</td>
-                <td>${formatRate(hedge.contractRate, 4)}</td>
+                <td>${formatRate(hedge.contractRate, 4, hedge.assetClass)}</td>
                 <td class="${pnlClass(mtm)}">${formatPnL(mtm)}</td>
                 <td style="color:var(--text-muted);font-size:12px;">${bank?.shortName || '—'}</td>
                 <td>Q+${Math.max(0, hedge.maturityQuarter - state.totalQuartersPlayed)}</td>

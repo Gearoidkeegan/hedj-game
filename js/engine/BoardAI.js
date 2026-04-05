@@ -67,10 +67,10 @@ class BoardAIController {
         if (ceoAppearance) {
             feedback.push({
                 member: {
-                    role: 'CEO (Special)',
+                    role: 'Chairman',
                     name: this.getCEODisplayName(),
                     personality: 'ceo',
-                    title: 'Chief Executive Officer'
+                    title: 'Chairman of the Board'
                 },
                 lines: ceoAppearance,
                 satisfactionDelta: 0
@@ -103,8 +103,8 @@ class BoardAIController {
             lines.push(rng.pick(pool.overtrading));
         }
 
-        if (state.tradeDirectionErrors > 0 && pool.trade_direction_error) {
-            // Only mention if error happened this quarter
+        if (state.tradeDirectionErrors > 0 && pool.trade_direction_error && state.tradesThisQuarter > 0) {
+            // Only mention if error happened this quarter (and trades were actually booked)
             const prevErrors = state.quarterlyResults.length > 1
                 ? (state.quarterlyResults[state.quarterlyResults.length - 2]?.tradeDirectionErrors || 0)
                 : 0;
@@ -192,7 +192,8 @@ class BoardAIController {
         // Modifiers
         if (result.marginCallAmount > 0) delta -= 3;
         if (state.tradesThisQuarter > 3) delta -= 1;
-        if (state.tradeDirectionErrors > 0) delta -= 2;
+        // Only penalize direction errors if trades were actually made this quarter
+        if (state.tradeDirectionErrors > 0 && state.tradesThisQuarter > 0) delta -= 2;
 
         // Policy compliance bonus
         if (this.wasInComplianceLastQuarter(state)) delta += 1;

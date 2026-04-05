@@ -223,7 +223,11 @@ class GameStateManager {
         });
 
         // Check for special outcomes
-        if (this.state.boardSatisfaction <= GAME_CONFIG.FIRE_THRESHOLD && !this.state.perfectCompliance) {
+        if (this.state.boardSatisfaction <= 0) {
+            // 0% satisfaction = immediate firing regardless of compliance
+            this.state.firedByBoard = true;
+            this.emit('fired', this.state);
+        } else if (this.state.boardSatisfaction <= GAME_CONFIG.FIRE_THRESHOLD && !this.state.perfectCompliance) {
             this.state.firedByBoard = true;
             this.emit('fired', this.state);
         }

@@ -97,7 +97,7 @@ export class BoardScreen {
                                 <span style="font-size:28px;">👑</span>
                                 <div>
                                     <div class="pixel-text" style="font-size:9px;color:var(--gold);">${ceoFeedback.member.name}</div>
-                                    <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-muted);">CHIEF EXECUTIVE OFFICER</div>
+                                    <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-muted);">CHAIRMAN OF THE BOARD</div>
                                 </div>
                             </div>
                             <div class="board-speech" id="speech-ceo" style="border-color:var(--gold-dark);background:rgba(0,0,0,0.2);">
@@ -139,8 +139,6 @@ export class BoardScreen {
         soundFX.boardReview();
 
         this.el.querySelector('#btn-continue').addEventListener('click', () => {
-            // Clear event result now that board has seen it
-            gameState.update({ lastEventResult: null });
             gameLoop.completeBoardReview();
         });
 

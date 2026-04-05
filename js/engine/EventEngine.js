@@ -125,10 +125,32 @@ class EventEngineController {
             ? `${primaryExposure.assetClass} (${primaryExposure.underlying})`
             : 'FX';
 
+        // Calculate hedge book MTM for {hedge_mtm} placeholder
+        let hedgeMtm = 0;
+        let hedgeCount = 0;
+        for (const h of state.hedgePortfolio) {
+            if (h.status === 'active') {
+                hedgeMtm += (h.currentMtm || 0);
+                hedgeCount++;
+            }
+        }
+        const mtmSign = hedgeMtm >= 0 ? 'in' : 'out of';
+        const mtmAbs = Math.abs(hedgeMtm);
+        const mtmStr = mtmAbs >= 1e6
+            ? `${(mtmAbs / 1e6).toFixed(1)}M`
+            : mtmAbs >= 1e3
+                ? `${(mtmAbs / 1e3).toFixed(0)}K`
+                : mtmAbs.toFixed(0);
+        const currency = state.industry?.baseCurrency || 'EUR';
+        const hedgeMtmText = hedgeCount > 0
+            ? `Your ${hedgeCount} active hedge${hedgeCount > 1 ? 's are' : ' is'} currently ${currency} ${mtmStr} ${mtmSign} the money.`
+            : 'You have no active hedges.';
+
         return text
             .replace(/\{exposure_type\}/g, exposureType)
             .replace(/\{industry\}/g, state.industry?.name || 'your company')
-            .replace(/\{company\}/g, state.companyName || state.industry?.companyName || 'the company');
+            .replace(/\{company\}/g, state.companyName || state.industry?.companyName || 'the company')
+            .replace(/\{hedge_mtm\}/g, hedgeMtmText);
     }
 
     /**
