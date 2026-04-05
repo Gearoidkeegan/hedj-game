@@ -213,18 +213,22 @@ class GameLoopController {
     }
 
     // Check if current hedge ratios comply with policy
+    // Uses total exposure (quarterly × remaining quarters) vs total hedge notional
     checkPolicyCompliance() {
         const state = gameState.get();
         const policy = state.hedgingPolicy;
         if (!policy || policy.id === 'none') return true;
 
+        const remainingQuarters = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
+
         for (const exposure of state.exposures) {
+            const totalExposure = exposure.quarterlyNotional * remainingQuarters;
             const hedgedAmount = state.hedgePortfolio
                 .filter(h => h.underlying === exposure.underlying && h.status === 'active')
                 .reduce((sum, h) => sum + h.notional, 0);
 
-            const hedgeRatio = exposure.quarterlyNotional > 0
-                ? hedgedAmount / exposure.quarterlyNotional
+            const hedgeRatio = totalExposure > 0
+                ? hedgedAmount / totalExposure
                 : 0;
 
             if (hedgeRatio < policy.minHedgeRatio || hedgeRatio > policy.maxHedgeRatio) {
@@ -288,16 +292,20 @@ class GameLoopController {
     }
 
     // Get current hedge ratio for an exposure
+    // Compares total hedge notional across all tenors vs total remaining exposure
     getHedgeRatio(exposureUnderlying) {
         const state = gameState.get();
         const exposure = state.exposures.find(e => e.underlying === exposureUnderlying);
         if (!exposure || !exposure.quarterlyNotional) return 0;
 
-        const hedgedAmount = state.hedgePortfolio
+        const remainingQuarters = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
+        const totalExposure = exposure.quarterlyNotional * remainingQuarters;
+
+        const totalHedged = state.hedgePortfolio
             .filter(h => h.underlying === exposureUnderlying && h.status === 'active')
             .reduce((sum, h) => sum + h.notional, 0);
 
-        return hedgedAmount / exposure.quarterlyNotional;
+        return totalHedged / totalExposure;
     }
 }
 

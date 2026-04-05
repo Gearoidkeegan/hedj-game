@@ -133,12 +133,14 @@ class BoardAIController {
             }
         }
 
-        // Over-hedging criticism (>100%)
+        // Over-hedging criticism (>100% of total remaining exposure)
+        const remainingQuarters = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
         const maxHedgeRatio = state.exposures.reduce((maxR, exp) => {
+            const totalExposure = exp.quarterlyNotional * remainingQuarters;
             const hedged = state.hedgePortfolio
                 .filter(h => h.underlying === exp.underlying && h.status === 'active')
                 .reduce((sum, h) => sum + h.notional, 0);
-            const ratio = exp.quarterlyNotional > 0 ? hedged / exp.quarterlyNotional : 0;
+            const ratio = totalExposure > 0 ? hedged / totalExposure : 0;
             return Math.max(maxR, ratio);
         }, 0);
         if (maxHedgeRatio > 1.0) {

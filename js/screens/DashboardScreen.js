@@ -929,10 +929,16 @@ export class DashboardScreen {
         this.el.querySelector('#hedge-ladder-container').style.display = 'none';
         this.el.querySelector('#trade-execution').style.display = 'none';
 
-        // Calculate existing hedge notional for this exposure
-        const existingHedgeNotional = state.hedgePortfolio
+        // Calculate total exposure and total hedged across all remaining quarters
+        const remainingQuarters = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
+        const totalExposure = exp.quarterlyNotional * remainingQuarters;
+        const totalHedged = state.hedgePortfolio
             .filter(h => h.underlying === exp.underlying && h.status === 'active')
             .reduce((sum, h) => sum + h.notional, 0);
+        const totalUnhedged = Math.max(0, totalExposure - totalHedged);
+
+        // Hedge ratio color
+        const hrColor = hedgeRatio >= 1.0 ? 'var(--pnl-negative)' : hedgeRatio >= 0.5 ? 'var(--pnl-positive)' : hedgeRatio > 0 ? 'var(--gold)' : 'var(--text-muted)';
 
         // Show exposure info
         const infoContainer = this.el.querySelector('#selected-exposure-info');
@@ -947,11 +953,15 @@ export class DashboardScreen {
             <div class="readable-text" style="font-size:15px;margin-top:4px;">${exp.description}</div>
             <div style="display:flex;justify-content:space-between;margin-top:6px;">
                 <span class="readable-text" style="font-size:14px;color:var(--text-muted)">Quarterly: ${formatCurrency(exp.quarterlyNotional, '', true)}</span>
-                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">Hedged: ${formatPercent(hedgeRatio, 0)}</span>
+                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">${remainingQuarters}Q remaining</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-top:4px;">
-                <span class="readable-text" style="font-size:14px;color:var(--cyan)">Existing cover: ${formatCurrency(existingHedgeNotional, '', true)}</span>
-                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">Unhedged: ${formatCurrency(Math.max(0, exp.quarterlyNotional - existingHedgeNotional), '', true)}</span>
+                <span class="readable-text" style="font-size:14px;color:var(--text-secondary)">Total exposure: ${formatCurrency(totalExposure, '', true)}</span>
+                <span class="readable-text" style="font-size:14px;color:var(--cyan)">Hedged: ${formatCurrency(totalHedged, '', true)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;align-items:center;">
+                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">Unhedged: ${formatCurrency(totalUnhedged, '', true)}</span>
+                <span class="pixel-text" style="font-size:9px;color:${hrColor}">OVERALL: ${formatPercent(hedgeRatio, 0)} HEDGED</span>
             </div>
         `;
 
