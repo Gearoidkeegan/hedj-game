@@ -457,8 +457,8 @@ export class StressFace {
     }
 
     drawFemaleHair(ctx, px) {
-        const hairColor = '#2a1a0a';
-        const hairHighlight = '#4a3020';
+        const hairColor = '#8b5e3c';
+        const hairHighlight = '#a87550';
 
         // Long flowing hair — top section (fuller, rounder)
         ctx.fillStyle = hairColor;
