@@ -245,41 +245,75 @@ export class StressFace {
     }
 
     drawEyebrows(ctx, px, stress) {
-        ctx.strokeStyle = '#3a2a1a';
-        ctx.lineWidth = 2 * px;
+        const isFemale = this.gender === 'female';
+        ctx.strokeStyle = isFemale ? '#2a1a0a' : '#3a2a1a';
+        ctx.lineWidth = isFemale ? 1.2 * px : 2 * px;
 
         const browY = 20 * px;
 
         if (stress <= 20) {
-            // Relaxed — flat
-            ctx.beginPath();
-            ctx.moveTo(18 * px, browY);
-            ctx.lineTo(30 * px, browY);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(36 * px, browY);
-            ctx.lineTo(48 * px, browY);
-            ctx.stroke();
+            if (isFemale) {
+                // Thin, arched brows
+                ctx.beginPath();
+                ctx.moveTo(18 * px, browY + 1 * px);
+                ctx.quadraticCurveTo(24 * px, browY - 3 * px, 30 * px, browY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(36 * px, browY);
+                ctx.quadraticCurveTo(42 * px, browY - 3 * px, 48 * px, browY + 1 * px);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(18 * px, browY);
+                ctx.lineTo(30 * px, browY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(36 * px, browY);
+                ctx.lineTo(48 * px, browY);
+                ctx.stroke();
+            }
         } else if (stress <= 60) {
-            // Worried — inner ends raised
-            ctx.beginPath();
-            ctx.moveTo(18 * px, browY - 1 * px);
-            ctx.lineTo(30 * px, browY + 2 * px);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(36 * px, browY + 2 * px);
-            ctx.lineTo(48 * px, browY - 1 * px);
-            ctx.stroke();
+            if (isFemale) {
+                // Worried — arched with inner raise
+                ctx.beginPath();
+                ctx.moveTo(18 * px, browY);
+                ctx.quadraticCurveTo(24 * px, browY - 2 * px, 30 * px, browY + 2 * px);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(36 * px, browY + 2 * px);
+                ctx.quadraticCurveTo(42 * px, browY - 2 * px, 48 * px, browY);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(18 * px, browY - 1 * px);
+                ctx.lineTo(30 * px, browY + 2 * px);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(36 * px, browY + 2 * px);
+                ctx.lineTo(48 * px, browY - 1 * px);
+                ctx.stroke();
+            }
         } else {
-            // Angry/panicking — V-shaped
-            ctx.beginPath();
-            ctx.moveTo(16 * px, browY + 3 * px);
-            ctx.lineTo(30 * px, browY - 2 * px);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(36 * px, browY - 2 * px);
-            ctx.lineTo(50 * px, browY + 3 * px);
-            ctx.stroke();
+            if (isFemale) {
+                // Angry — sharper arch
+                ctx.beginPath();
+                ctx.moveTo(16 * px, browY + 2 * px);
+                ctx.quadraticCurveTo(24 * px, browY - 4 * px, 30 * px, browY - 1 * px);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(36 * px, browY - 1 * px);
+                ctx.quadraticCurveTo(42 * px, browY - 4 * px, 50 * px, browY + 2 * px);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(16 * px, browY + 3 * px);
+                ctx.lineTo(30 * px, browY - 2 * px);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(36 * px, browY - 2 * px);
+                ctx.lineTo(50 * px, browY + 3 * px);
+                ctx.stroke();
+            }
         }
     }
 
@@ -287,37 +321,87 @@ export class StressFace {
         const mouthY = 42 * px;
         const mouthX = 22 * px;
         const mouthW = 20 * px;
+        const isFemale = this.gender === 'female';
 
-        // Female character gets lip colour on lower stress states
-        const lipColor = this.gender === 'female' && stress <= 60 ? '#cc4466' : '#222';
+        // Female gets fuller, colored lips; male gets thin line mouth
+        const lipColor = isFemale && stress <= 60 ? '#cc3355' : '#222';
         ctx.strokeStyle = lipColor;
-        ctx.lineWidth = 2 * px;
+        ctx.lineWidth = isFemale ? 2.5 * px : 2 * px;
 
         if (stress <= 20) {
-            // Slight smile
-            ctx.beginPath();
-            ctx.moveTo(mouthX, mouthY);
-            ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY + 6 * px, mouthX + mouthW, mouthY);
-            ctx.stroke();
+            if (isFemale) {
+                // Fuller smile with lip shape
+                ctx.fillStyle = '#cc3355';
+                ctx.beginPath();
+                ctx.moveTo(mouthX + 2 * px, mouthY + 1 * px);
+                ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY - 2 * px, mouthX + mouthW - 2 * px, mouthY + 1 * px);
+                ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY + 7 * px, mouthX + 2 * px, mouthY + 1 * px);
+                ctx.fill();
+                ctx.strokeStyle = '#aa2244';
+                ctx.lineWidth = 0.8 * px;
+                ctx.stroke();
+                // Upper lip line
+                ctx.beginPath();
+                ctx.moveTo(mouthX + 2 * px, mouthY + 1 * px);
+                ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY - 2 * px, mouthX + mouthW - 2 * px, mouthY + 1 * px);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(mouthX, mouthY);
+                ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY + 6 * px, mouthX + mouthW, mouthY);
+                ctx.stroke();
+            }
         } else if (stress <= 40) {
-            // Neutral line
-            ctx.beginPath();
-            ctx.moveTo(mouthX, mouthY + 2 * px);
-            ctx.lineTo(mouthX + mouthW, mouthY + 2 * px);
-            ctx.stroke();
+            if (isFemale) {
+                // Neutral lips — still visible shape
+                ctx.fillStyle = '#cc3355';
+                ctx.beginPath();
+                ctx.moveTo(mouthX + 2 * px, mouthY + 2 * px);
+                ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY, mouthX + mouthW - 2 * px, mouthY + 2 * px);
+                ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY + 5 * px, mouthX + 2 * px, mouthY + 2 * px);
+                ctx.fill();
+                ctx.strokeStyle = '#aa2244';
+                ctx.lineWidth = 0.6 * px;
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(mouthX, mouthY + 2 * px);
+                ctx.lineTo(mouthX + mouthW, mouthY + 2 * px);
+                ctx.stroke();
+            }
         } else if (stress <= 60) {
-            // Slight frown
-            ctx.beginPath();
-            ctx.moveTo(mouthX, mouthY + 2 * px);
-            ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY - 3 * px, mouthX + mouthW, mouthY + 2 * px);
-            ctx.stroke();
+            if (isFemale) {
+                // Slight frown with lip shape
+                ctx.fillStyle = '#bb3355';
+                ctx.beginPath();
+                ctx.moveTo(mouthX + 2 * px, mouthY + 1 * px);
+                ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY + 3 * px, mouthX + mouthW - 2 * px, mouthY + 1 * px);
+                ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY - 2 * px, mouthX + 2 * px, mouthY + 1 * px);
+                ctx.fill();
+                ctx.strokeStyle = '#992244';
+                ctx.lineWidth = 0.6 * px;
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(mouthX, mouthY + 2 * px);
+                ctx.quadraticCurveTo(mouthX + mouthW / 2, mouthY - 3 * px, mouthX + mouthW, mouthY + 2 * px);
+                ctx.stroke();
+            }
         } else if (stress <= 80) {
-            // Open frown (worried mouth)
+            // Open frown (worried mouth) — same for both
             ctx.fillStyle = '#600';
             ctx.beginPath();
             ctx.ellipse(mouthX + mouthW / 2, mouthY + 2 * px, 8 * px, 5 * px, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
+            if (isFemale) {
+                // Lipstick smudge around the open mouth
+                ctx.strokeStyle = '#993344';
+                ctx.lineWidth = 1 * px;
+                ctx.beginPath();
+                ctx.ellipse(mouthX + mouthW / 2, mouthY + 2 * px, 9 * px, 6 * px, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            }
         } else {
             // Grimace — teeth showing
             ctx.fillStyle = '#600';
@@ -373,60 +457,105 @@ export class StressFace {
     }
 
     drawFemaleHair(ctx, px) {
-        const hairColor = '#4a2a1a';
+        const hairColor = '#2a1a0a';
+        const hairHighlight = '#4a3020';
 
-        // Longer hair — top section
+        // Long flowing hair — top section (fuller, rounder)
         ctx.fillStyle = hairColor;
-        for (let x = 10; x <= 50; x += 4) {
-            ctx.fillRect(x * px, 1 * px, 4 * px, 8 * px);
-        }
+        // Main hair volume — rounded top
+        ctx.beginPath();
+        ctx.moveTo(8 * px, 12 * px);
+        ctx.quadraticCurveTo(8 * px, 0, 32 * px, -1 * px);
+        ctx.quadraticCurveTo(56 * px, 0, 56 * px, 12 * px);
+        ctx.lineTo(56 * px, 6 * px);
+        ctx.quadraticCurveTo(56 * px, -2 * px, 32 * px, -3 * px);
+        ctx.quadraticCurveTo(8 * px, -2 * px, 8 * px, 6 * px);
+        ctx.closePath();
+        ctx.fill();
 
-        // Side hair — left
-        ctx.fillRect(4 * px, 6 * px, 6 * px, 28 * px);
-        ctx.fillRect(2 * px, 10 * px, 4 * px, 20 * px);
+        // Side hair — left (longer, flowing past face)
+        ctx.fillRect(2 * px, 6 * px, 8 * px, 38 * px);
+        ctx.fillRect(0 * px, 12 * px, 5 * px, 30 * px);
+        // Rounded bottom of left hair
+        ctx.beginPath();
+        ctx.arc(5 * px, 44 * px, 5 * px, 0, Math.PI);
+        ctx.fill();
 
-        // Side hair — right
-        ctx.fillRect(54 * px, 6 * px, 6 * px, 28 * px);
-        ctx.fillRect(58 * px, 10 * px, 4 * px, 20 * px);
+        // Side hair — right (longer, flowing past face)
+        ctx.fillRect(54 * px, 6 * px, 8 * px, 38 * px);
+        ctx.fillRect(59 * px, 12 * px, 5 * px, 30 * px);
+        // Rounded bottom of right hair
+        ctx.beginPath();
+        ctx.arc(59 * px, 44 * px, 5 * px, 0, Math.PI);
+        ctx.fill();
 
-        // Fringe / bangs
-        ctx.fillRect(12 * px, 6 * px, 20 * px, 4 * px);
+        // Fringe / bangs — swept to one side
+        ctx.fillRect(10 * px, 4 * px, 24 * px, 6 * px);
+        ctx.fillRect(10 * px, 8 * px, 16 * px, 3 * px);
+
+        // Hair highlight/shine streak
+        ctx.fillStyle = hairHighlight;
+        ctx.fillRect(14 * px, 2 * px, 3 * px, 6 * px);
+        ctx.fillRect(28 * px, 1 * px, 3 * px, 5 * px);
     }
 
     drawEyelashes(ctx, px) {
-        ctx.strokeStyle = '#222';
-        ctx.lineWidth = 1 * px;
+        ctx.strokeStyle = '#111';
+        ctx.lineWidth = 1.2 * px;
 
-        // Left eye — top lashes
         const leftX = 20 * px;
         const rightX = 38 * px;
         const eyeTop = 23 * px;
 
+        // Left eye — thick top lashes (more prominent, curved)
         ctx.beginPath();
-        ctx.moveTo(leftX, eyeTop);
-        ctx.lineTo(leftX - 2 * px, eyeTop - 3 * px);
+        ctx.moveTo(leftX - 1 * px, eyeTop + 1 * px);
+        ctx.lineTo(leftX - 3 * px, eyeTop - 4 * px);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(leftX + 5 * px, eyeTop - 1 * px);
-        ctx.lineTo(leftX + 5 * px, eyeTop - 4 * px);
+        ctx.moveTo(leftX + 3 * px, eyeTop - 1 * px);
+        ctx.lineTo(leftX + 2 * px, eyeTop - 5 * px);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(leftX + 7 * px, eyeTop - 1 * px);
+        ctx.lineTo(leftX + 8 * px, eyeTop - 5 * px);
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(leftX + 10 * px, eyeTop);
-        ctx.lineTo(leftX + 12 * px, eyeTop - 3 * px);
+        ctx.lineTo(leftX + 13 * px, eyeTop - 4 * px);
         ctx.stroke();
 
-        // Right eye — top lashes
+        // Right eye — thick top lashes
         ctx.beginPath();
-        ctx.moveTo(rightX, eyeTop);
-        ctx.lineTo(rightX - 2 * px, eyeTop - 3 * px);
+        ctx.moveTo(rightX - 1 * px, eyeTop + 1 * px);
+        ctx.lineTo(rightX - 3 * px, eyeTop - 4 * px);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(rightX + 5 * px, eyeTop - 1 * px);
-        ctx.lineTo(rightX + 5 * px, eyeTop - 4 * px);
+        ctx.moveTo(rightX + 3 * px, eyeTop - 1 * px);
+        ctx.lineTo(rightX + 2 * px, eyeTop - 5 * px);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(rightX + 7 * px, eyeTop - 1 * px);
+        ctx.lineTo(rightX + 8 * px, eyeTop - 5 * px);
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(rightX + 10 * px, eyeTop);
-        ctx.lineTo(rightX + 12 * px, eyeTop - 3 * px);
+        ctx.lineTo(rightX + 13 * px, eyeTop - 4 * px);
+        ctx.stroke();
+
+        // Earrings (small gold circles visible below hair on each side)
+        ctx.fillStyle = '#e8c040';
+        ctx.strokeStyle = '#c0a030';
+        ctx.lineWidth = 0.5 * px;
+        // Left earring
+        ctx.beginPath();
+        ctx.arc(10 * px, 34 * px, 2 * px, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Right earring
+        ctx.beginPath();
+        ctx.arc(54 * px, 34 * px, 2 * px, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
     }
 
