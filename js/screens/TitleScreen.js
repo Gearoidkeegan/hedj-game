@@ -383,38 +383,41 @@ export class TitleScreen {
 
         ctx.clearRect(0, 0, w, h);
 
-        // === Draw the Hedj icon (3 overlapping rounded rectangles + circle) ===
-        const iconCx = w / 2;
-        const iconTop = 2;
-        const iconScale = 0.75;
+        // === Draw the Hedj icon matching the brand logo ===
+        // Logo structure: green tall rect (back-left, tilted left),
+        // grey/steel rect (middle, slight tilt), orange rect (right, tilted right),
+        // yellow circle (bottom-right, overlapping orange base)
+        const s = 0.9; // overall scale
+        const cx = w / 2 - 2;
+        const top = 0;
 
         ctx.save();
-        ctx.translate(iconCx, iconTop);
+        ctx.translate(cx, top);
 
-        // Green tall rounded rectangle (tilted left) — back layer
+        // 1. Green — tall narrow rounded rect, tilted left
         ctx.save();
-        ctx.translate(-8 * iconScale, 22 * iconScale);
-        ctx.rotate(-0.15);
-        this.drawRoundedRect(ctx, -14 * iconScale, -22 * iconScale, 28 * iconScale, 52 * iconScale, 6 * iconScale, '#3cb88c');
+        ctx.translate(-10 * s, 30 * s);
+        ctx.rotate(-0.18);
+        this.drawRoundedRect(ctx, -13 * s, -28 * s, 26 * s, 58 * s, 5 * s, '#3cb88c');
         ctx.restore();
 
-        // Grey/blue rounded rectangle (overlapping, tilted right slightly)
+        // 2. Grey/steel blue — middle rect, overlapping green, slight right tilt
         ctx.save();
-        ctx.translate(2 * iconScale, 24 * iconScale);
-        ctx.rotate(0.05);
-        this.drawRoundedRect(ctx, -13 * iconScale, -20 * iconScale, 26 * iconScale, 48 * iconScale, 6 * iconScale, '#94a3b8');
+        ctx.translate(2 * s, 32 * s);
+        ctx.rotate(0.08);
+        this.drawRoundedRect(ctx, -12 * s, -24 * s, 24 * s, 52 * s, 5 * s, '#94a3b8');
         ctx.restore();
 
-        // Orange rounded rectangle (tilted right more, offset right)
+        // 3. Orange — shorter rect, tilted right, positioned right
         ctx.save();
-        ctx.translate(12 * iconScale, 18 * iconScale);
-        ctx.rotate(0.25);
-        this.drawRoundedRect(ctx, -12 * iconScale, -18 * iconScale, 24 * iconScale, 40 * iconScale, 6 * iconScale, '#e8923e');
+        ctx.translate(14 * s, 24 * s);
+        ctx.rotate(0.30);
+        this.drawRoundedRect(ctx, -11 * s, -20 * s, 22 * s, 38 * s, 5 * s, '#e8923e');
         ctx.restore();
 
-        // Yellow/gold circle (bottom right)
+        // 4. Yellow circle — bottom right, large and prominent
         ctx.beginPath();
-        ctx.arc(16 * iconScale, 42 * iconScale, 8 * iconScale, 0, Math.PI * 2);
+        ctx.arc(18 * s, 50 * s, 9 * s, 0, Math.PI * 2);
         ctx.fillStyle = '#fbbf24';
         ctx.fill();
 
@@ -423,7 +426,6 @@ export class TitleScreen {
         // === Draw "HEDJ" in pixel-art block letters below the icon ===
         const primary = '#00b894';
         const primaryDark = '#009874';
-        const accent = '#ffcc00';
 
         const letters = {
             H: [
@@ -496,9 +498,19 @@ export class TitleScreen {
             }
         }
 
+        // Yellow dot over the J — replicating the logo's circle motif
+        // J starts at li=3, the dot sits above the rightmost column of J
+        const jStartX = startX + 3 * (letterW + gap) * px;
+        const dotX = jStartX + 3 * px + Math.floor(px / 2); // center of J's right column
+        const dotY = startY - 5; // above the J
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fill();
+
         // Underline accent bar
         const barY = startY + letterH * px + 3;
-        ctx.fillStyle = accent;
+        ctx.fillStyle = '#ffcc00';
         ctx.fillRect(startX, barY, totalW * px, 2);
 
         // "FINANCIAL SERVICES" subtitle
