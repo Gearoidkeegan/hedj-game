@@ -383,45 +383,51 @@ export class TitleScreen {
 
         ctx.clearRect(0, 0, w, h);
 
-        // === Draw the Hedj icon matching the brand logo ===
-        // Logo structure: green tall rect (back-left, tilted left),
-        // grey/steel rect (middle, slight tilt), orange rect (right, tilted right),
-        // yellow circle (bottom-right, overlapping orange base)
-        const s = 0.9; // overall scale
-        const cx = w / 2 - 2;
-        const top = 0;
+        // === Hedj brand logo ===
+        // Green upright rounded rect + orange same-size rect pivoted from shared
+        // bottom-left corner, tilting right. Overlap area is grey/blue.
+        // Yellow dot bisects the lower long edge of the orange rect.
 
-        ctx.save();
-        ctx.translate(cx, top);
+        const s = 0.85;
+        const rectW = 26 * s;
+        const rectH = 56 * s;
+        const r = 5 * s;
+        const pivotX = w / 2 - 8 * s;   // bottom-left corner (shared)
+        const pivotY = 4 + rectH;        // bottom of the green rect
+        const angle = 0.38;              // orange tilt angle (radians, ~22°)
 
-        // 1. Green — tall narrow rounded rect, tilted left
+        // 1. Draw green rect (upright)
+        this.drawRoundedRect(ctx, pivotX - rectW, pivotY - rectH, rectW, rectH, r, '#3cb88c');
+
+        // 2. Draw orange rect (rotated from bottom-left corner)
         ctx.save();
-        ctx.translate(-10 * s, 30 * s);
-        ctx.rotate(-0.18);
-        this.drawRoundedRect(ctx, -13 * s, -28 * s, 26 * s, 58 * s, 5 * s, '#3cb88c');
+        ctx.translate(pivotX, pivotY);
+        ctx.rotate(angle);
+        this.drawRoundedRect(ctx, 0, -rectH, rectW, rectH, r, '#e8923e');
         ctx.restore();
 
-        // 2. Grey/steel blue — middle rect, overlapping green, slight right tilt
+        // 3. Draw grey/blue overlap: clip to green rect, then fill orange rect shape
         ctx.save();
-        ctx.translate(2 * s, 32 * s);
-        ctx.rotate(0.08);
-        this.drawRoundedRect(ctx, -12 * s, -24 * s, 24 * s, 52 * s, 5 * s, '#94a3b8');
+        // Clip to green rect region
+        this.buildRoundedRectPath(ctx, pivotX - rectW, pivotY - rectH, rectW, rectH, r);
+        ctx.clip();
+        // Draw the orange rect shape again, but in grey/blue — only visible in overlap
+        ctx.translate(pivotX, pivotY);
+        ctx.rotate(angle);
+        this.drawRoundedRect(ctx, 0, -rectH, rectW, rectH, r, '#94a3b8');
         ctx.restore();
 
-        // 3. Orange — shorter rect, tilted right, positioned right
-        ctx.save();
-        ctx.translate(14 * s, 24 * s);
-        ctx.rotate(0.30);
-        this.drawRoundedRect(ctx, -11 * s, -20 * s, 22 * s, 38 * s, 5 * s, '#e8923e');
-        ctx.restore();
-
-        // 4. Yellow circle — bottom right, large and prominent
+        // 4. Yellow dot — bisects the lower long side of orange rect
+        // The midpoint of orange rect's right edge (long side), in rotated coords:
+        // right edge midpoint = (rectW, -rectH/2), rotated by angle around pivot
+        const dotLocalX = rectW;
+        const dotLocalY = -rectH * 0.08; // near bottom of the right edge
+        const dotX = pivotX + dotLocalX * Math.cos(angle) - dotLocalY * Math.sin(angle);
+        const dotY = pivotY + dotLocalX * Math.sin(angle) + dotLocalY * Math.cos(angle);
         ctx.beginPath();
-        ctx.arc(18 * s, 50 * s, 9 * s, 0, Math.PI * 2);
+        ctx.arc(dotX, dotY, 8 * s, 0, Math.PI * 2);
         ctx.fillStyle = '#fbbf24';
         ctx.fill();
-
-        ctx.restore();
 
         // === Draw "HEDJ" in pixel-art block letters below the icon ===
         const primary = '#00b894';
@@ -522,7 +528,7 @@ export class TitleScreen {
         ctx.textAlign = 'left';
     }
 
-    drawRoundedRect(ctx, x, y, w, h, r, color) {
+    buildRoundedRectPath(ctx, x, y, w, h, r) {
         ctx.beginPath();
         ctx.moveTo(x + r, y);
         ctx.lineTo(x + w - r, y);
@@ -534,6 +540,10 @@ export class TitleScreen {
         ctx.lineTo(x, y + r);
         ctx.quadraticCurveTo(x, y, x + r, y);
         ctx.closePath();
+    }
+
+    drawRoundedRect(ctx, x, y, w, h, r, color) {
+        this.buildRoundedRectPath(ctx, x, y, w, h, r);
         ctx.fillStyle = color;
         ctx.fill();
     }
