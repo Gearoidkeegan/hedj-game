@@ -107,43 +107,38 @@ export class DashboardScreen {
                             <span id="policy-badge" class="badge" style="font-size:6px"></span>
                         </div>
 
-                        <!-- Bloomberg terminal chart — selected exposure price -->
-                        <div id="bloomberg-right" style="margin-bottom:8px;">
-                            <canvas id="bloomberg-canvas-right" width="280" height="130" style="width:100%;border-radius:2px;box-shadow:0 0 8px rgba(0,140,255,0.3), inset 0 0 2px rgba(0,140,255,0.2);display:none;"></canvas>
-                        </div>
+                        <!-- Scrollable middle: exposure info, direction test, products, ladder -->
+                        <div style="flex:1;min-height:0;overflow-y:auto;">
+                            <!-- Bloomberg terminal chart — selected exposure price -->
+                            <div id="bloomberg-right" style="margin-bottom:8px;">
+                                <canvas id="bloomberg-canvas-right" width="280" height="130" style="width:100%;border-radius:2px;box-shadow:0 0 8px rgba(0,140,255,0.3), inset 0 0 2px rgba(0,140,255,0.2);display:none;"></canvas>
+                            </div>
 
-                        <!-- Selected exposure info -->
-                        <div class="panel-inset mb-8" id="selected-exposure-info">
-                            <div class="readable-text" style="color:var(--text-muted);text-align:center;padding:16px;">
-                                Select an exposure to hedge
+                            <!-- Selected exposure info -->
+                            <div class="panel-inset mb-8" id="selected-exposure-info">
+                                <div class="readable-text" style="color:var(--text-muted);text-align:center;padding:16px;">
+                                    Select an exposure to hedge
+                                </div>
+                            </div>
+
+                            <!-- Trade direction test (shown when exposure selected) -->
+                            <div id="direction-test" style="display:none;"></div>
+
+                            <!-- Product selector (shown after direction confirmed) -->
+                            <div class="hedge-product-selector" id="product-selector" style="display:none;"></div>
+
+                            <!-- Hedge ladder -->
+                            <div id="hedge-ladder-container" style="display:none;"></div>
+
+                            <!-- Active hedges summary -->
+                            <div class="mt-8">
+                                <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-secondary);padding:4px 8px;">ACTIVE HEDGES</div>
+                                <div id="active-hedges-list" class="panel-inset"></div>
                             </div>
                         </div>
 
-                        <!-- Trade direction test (shown when exposure selected) -->
-                        <div id="direction-test" style="display:none;"></div>
-
-                        <!-- Product selector (shown after direction confirmed) -->
-                        <div class="hedge-product-selector" id="product-selector" style="display:none;"></div>
-
-                        <!-- Bank selector -->
-                        <div id="bank-selector" style="display:none;"></div>
-
-                        <!-- Hedge ladder (replaces old slider) -->
-                        <div id="hedge-ladder-container" style="display:none;"></div>
-
-                        <!-- Trade preview + execute -->
-                        <div id="trade-execution" style="display:none;">
-                            <div class="panel-inset mt-8" id="trade-preview"></div>
-                            <button class="btn btn-primary w-full mt-8" id="btn-execute-hedge">
-                                EXECUTE HEDGE
-                            </button>
-                        </div>
-
-                        <!-- Active hedges summary -->
-                        <div class="mt-8" style="flex:1;overflow-y:auto;">
-                            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-secondary);padding:4px 8px;">ACTIVE HEDGES</div>
-                            <div id="active-hedges-list" class="panel-inset"></div>
-                        </div>
+                        <!-- Fixed bottom: bank execute buttons (always visible) -->
+                        <div id="trade-execution" style="display:none;border-top:1px solid var(--border);padding-top:6px;margin-top:4px;flex-shrink:0;"></div>
                     </div>
                 </div>
             </div>
@@ -217,10 +212,7 @@ export class DashboardScreen {
             this.endQuarter();
         });
 
-        // Execute hedge
-        this.el.querySelector('#btn-execute-hedge')?.addEventListener('click', () => {
-            this.executeHedge();
-        });
+        // Execute hedge buttons are wired dynamically in renderBankExecuteButtons()
     }
 
     unmount() {
@@ -455,13 +447,11 @@ export class DashboardScreen {
         // Show product selector and controls
         this.renderProductsForExposure(exposure);
         this.el.querySelector('#product-selector').style.display = 'flex';
-        this.el.querySelector('#bank-selector').style.display = 'block';
         this.el.querySelector('#hedge-ladder-container').style.display = 'block';
         this.el.querySelector('#trade-execution').style.display = 'block';
 
         this.initHedgeLadder(exposure);
-        this.renderBankSelector();
-        this.renderTradePreview();
+        this.renderBankExecuteButtons();
     }
 
     onDirectionWrong(exposure) {
@@ -529,70 +519,123 @@ export class DashboardScreen {
     }
 
     // -----------------------------------------------------------------------
-    // Bank selector
+    // Bank execute buttons — each bank offers a slightly different price
     // -----------------------------------------------------------------------
 
-    renderBankSelector() {
-        const container = this.el.querySelector('#bank-selector');
-        const banks = bankEngine.getActiveBanks();
+    getBankPricingSpread(bank) {
+        // Tier 1 banks: tighter spreads (better price). Tier 2: wider.
+        // Returns a multiplier applied to the contract rate.
+        const rng = gameState.getRng();
+        const baseBps = bank.tier === 1 ? 3 : 8; // basis points
+        const jitter = rng.floatRange(-1, 2); // slight randomness
+        return (baseBps + jitter) / 10000;
+    }
 
-        if (banks.length === 0) {
-            container.style.display = 'none';
+    renderBankExecuteButtons() {
+        const container = this.el.querySelector('#trade-execution');
+        if (!this.selectedExposure || !this.hedgeLadder) {
+            container.innerHTML = '';
             return;
         }
 
-        let html = '<div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-secondary);margin-bottom:4px;">COUNTERPARTY</div><div style="display:flex;gap:4px;flex-wrap:wrap;">';
+        const state = gameState.get();
+        const exp = this.selectedExposure;
+        const banks = bankEngine.getActiveBanks();
+        const changes = this.hedgeLadder.getChangedBuckets().filter(c => c.deltaPct > 0);
 
-        for (const bank of banks) {
+        // Calculate total new notional
+        const totalNewNotional = changes.reduce((sum, c) => sum + exp.quarterlyNotional * c.deltaPct, 0);
+
+        if (totalNewNotional <= 0 || banks.length === 0) {
+            container.innerHTML = `<div class="readable-text" style="font-size:13px;color:var(--text-muted);text-align:center;padding:8px;">Adjust coverage sliders above to hedge</div>`;
+            return;
+        }
+
+        // Get base rate
+        const livePrice = (this.quarterStarted && this.bloombergTerminal && this.bloombergTerminal.underlying === exp.underlying)
+            ? this.bloombergTerminal.getCurrentPrice() : 0;
+        const currentRate = (livePrice > 0) ? livePrice : (state.currentRates[exp.underlying] || 0);
+
+        // Price the product at mid
+        let midRate = currentRate;
+        if (this.selectedProductId) {
+            if (this.selectedProductId.includes('forward') || this.selectedProductId.includes('future')) {
+                const { tenor } = this.hedgeLadder.getSelection();
+                midRate = exp.type === 'fx'
+                    ? hedgingEngine.priceFXForward(currentRate, 0.03, 0.04, tenor)
+                    : hedgingEngine.priceCommodityFuture(currentRate, 0.04, tenor);
+            } else if (this.selectedProductId === 'ir_swap') {
+                const { tenor } = this.hedgeLadder.getSelection();
+                midRate = hedgingEngine.priceIRSwap(currentRate, tenor);
+            }
+        }
+
+        // Check diversification requirement from policy
+        const policy = state.hedgingPolicy;
+        const requiresDiversification = policy && policy.rules &&
+            policy.rules.some(r => r.toLowerCase().includes('diversif') || r.toLowerCase().includes('no single bank'));
+
+        // Build per-bank pricing
+        const bankOffers = banks.map(bank => {
+            const spread = this.getBankPricingSpread(bank);
+            // For buy direction, lower rate = better. For sell, higher = better.
+            const direction = exp.direction === 'buy' ? 1 : -1;
+            const bankRate = midRate + (spread * direction);
             const avail = bankEngine.getAvailableCredit(bank.id);
-            const selected = this.selectedBankId === bank.id ? 'selected' : '';
+            const hasCredit = avail >= totalNewNotional;
+            return { bank, bankRate, spread, hasCredit, avail };
+        });
+
+        // Find best price
+        const bestRate = exp.direction === 'buy'
+            ? Math.min(...bankOffers.filter(o => o.hasCredit).map(o => o.bankRate))
+            : Math.max(...bankOffers.filter(o => o.hasCredit).map(o => o.bankRate));
+
+        // Summary line
+        let html = `<div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-secondary);margin-bottom:4px;">
+            EXECUTE VIA BANK — ${formatCurrency(totalNewNotional, '', true)} notional
+            ${changes.length > 1 ? ` (${changes.length} tenors)` : ''}
+        </div>`;
+
+        html += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
+
+        for (const offer of bankOffers) {
+            const isBest = Math.abs(offer.bankRate - bestRate) < 1e-10;
+            const borderColor = !offer.hasCredit ? 'var(--pnl-negative)' : isBest ? 'var(--pnl-positive)' : 'var(--border-inner)';
+            const rateColor = isBest ? 'var(--pnl-positive)' : 'var(--text-primary)';
+
             html += `
-                <div class="hedge-product-btn ${selected}" data-bank-id="${bank.id}" style="min-width:60px;font-size:8px;">
-                    <div>${bank.shortName}</div>
-                    <div style="font-size:6px;color:var(--text-muted);font-family:var(--font-pixel);">${formatCurrency(avail, '', true)}</div>
-                </div>
+                <button class="btn bank-execute-btn" data-bank-id="${offer.bank.id}"
+                    style="flex:1;min-width:80px;padding:6px 4px;text-align:center;border-color:${borderColor};${!offer.hasCredit ? 'opacity:0.4;' : ''}"
+                    ${!offer.hasCredit ? 'disabled title="Insufficient credit"' : ''}>
+                    <div class="pixel-text" style="font-size:8px;color:var(--cyan);">${offer.bank.shortName}</div>
+                    <div class="pixel-text" style="font-size:9px;color:${rateColor};margin:2px 0;">${formatRate(offer.bankRate, 4, exp.type)}</div>
+                    <div class="pixel-text" style="font-size:6px;color:var(--text-muted);">${formatCurrency(offer.avail, '', true)} avail</div>
+                    ${isBest && offer.hasCredit ? '<div class="pixel-text" style="font-size:6px;color:var(--pnl-positive);">BEST</div>' : ''}
+                </button>
             `;
         }
 
         html += '</div>';
 
-        // Request more banks button
-        if (banks.length < 5) {
-            html += `<button class="btn" id="btn-request-bank" style="font-size:7px;padding:4px 8px;margin-top:4px;">+ REQUEST BANK</button>`;
+        if (requiresDiversification) {
+            html += `<div class="pixel-text" style="font-size:6px;color:var(--gold);margin-top:3px;">⚠ Policy requires bank diversification</div>`;
         }
 
         container.innerHTML = html;
 
-        // Default to first bank
-        if (!this.selectedBankId) {
-            this.selectedBankId = banks[0]?.id;
-            container.querySelector('.hedge-product-btn')?.classList.add('selected');
-        }
+        // Store offers for execute logic
+        this._bankOffers = bankOffers;
+        this._bestBankRate = bestRate;
+        this._requiresDiversification = requiresDiversification;
 
-        container.querySelectorAll('.hedge-product-btn[data-bank-id]').forEach(btn => {
+        // Wire up bank execute buttons
+        container.querySelectorAll('.bank-execute-btn:not([disabled])').forEach(btn => {
             btn.addEventListener('click', () => {
-                container.querySelectorAll('.hedge-product-btn[data-bank-id]').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                this.selectedBankId = btn.dataset.bankId;
-                this.renderTradePreview();
+                const bankId = btn.dataset.bankId;
+                this.executeHedgeViaBank(bankId);
             });
         });
-
-        const reqBtn = container.querySelector('#btn-request-bank');
-        if (reqBtn) {
-            reqBtn.addEventListener('click', () => {
-                const rng = gameState.getRng();
-                const result = bankEngine.requestFromBoard('new_bank', rng);
-                if (result.success) {
-                    gameState.adjustSatisfaction(-result.satisfactionCost);
-                    this.app.showToast(result.message, 'info');
-                } else {
-                    this.app.showToast(result.message, 'warning');
-                }
-                this.renderBankSelector();
-                this.renderBanksView();
-            });
-        }
     }
 
     // -----------------------------------------------------------------------
@@ -616,112 +659,11 @@ export class DashboardScreen {
     // -----------------------------------------------------------------------
 
     renderTradePreview() {
-        if (!this.selectedExposure || !this.hedgeLadder) return;
-        const state = gameState.get();
-        const exp = this.selectedExposure;
-        const { tenor, pct } = this.hedgeLadder.getSelection();
-        const notional = exp.quarterlyNotional * pct;
-
-        // Use live Bloomberg price if quarter is active, otherwise static rate
-        const livePrice = (this.quarterStarted && this.bloombergTerminal && this.bloombergTerminal.underlying === exp.underlying)
-            ? this.bloombergTerminal.getCurrentPrice()
-            : 0;
-        const currentRate = (livePrice > 0) ? livePrice : (state.currentRates[exp.underlying] || 0);
-
-        if (notional === 0) {
-            const preview = this.el.querySelector('#trade-preview');
-            if (preview) preview.innerHTML = '<div class="readable-text" style="font-size:13px;color:var(--text-muted);text-align:center;padding:8px;">Adjust Q+' + tenor + ' coverage to preview</div>';
-            return;
-        }
-
-        // Price the trade using HedgingEngine
-        let contractRate = currentRate;
-        let premiumInfo = '';
-
-        if (this.selectedProductId) {
-            if (this.selectedProductId.includes('forward') || this.selectedProductId.includes('future')) {
-                if (exp.type === 'fx') {
-                    contractRate = hedgingEngine.priceFXForward(currentRate, 0.03, 0.04, tenor);
-                } else {
-                    contractRate = hedgingEngine.priceCommodityFuture(currentRate, 0.04, tenor);
-                }
-            } else if (this.selectedProductId.includes('option')) {
-                const opt = hedgingEngine.priceOption(currentRate, null, tenor, exp.type);
-                contractRate = opt.strike;
-                const premiumAmt = opt.premiumPct * notional;
-                premiumInfo = `
-                    <div style="display:flex;justify-content:space-between;">
-                        <span style="color:var(--pnl-negative)">Premium:</span>
-                        <span style="color:var(--pnl-negative)">${formatCurrency(premiumAmt, '', true)}</span>
-                    </div>
-                `;
-            } else if (this.selectedProductId === 'ir_swap') {
-                contractRate = hedgingEngine.priceIRSwap(currentRate, tenor);
-            } else if (this.selectedProductId === 'ir_cap') {
-                const cap = hedgingEngine.priceIRCap(currentRate, tenor);
-                contractRate = cap.strike;
-                const premiumAmt = cap.premium * notional;
-                premiumInfo = `
-                    <div style="display:flex;justify-content:space-between;">
-                        <span style="color:var(--pnl-negative)">Premium:</span>
-                        <span style="color:var(--pnl-negative)">${formatCurrency(premiumAmt, '', true)}</span>
-                    </div>
-                `;
-            }
-        }
-
-        // Trading cost
-        const productType = this.selectedProductId?.split('_').pop() || 'forward';
-        const tradingCost = hedgingEngine.getTradingCost(productType, notional);
-
-        // Credit usage depends on product: options/caps = 0, swaps = notional/4, forwards/futures = full
-        let previewCreditUsage = notional;
-        if (productType === 'option' || productType === 'cap') {
-            previewCreditUsage = 0;
-        } else if (productType === 'swap') {
-            previewCreditUsage = notional / 4;
-        }
-
-        // Bank credit check
-        let bankWarning = '';
-        if (this.selectedBankId && previewCreditUsage > 0) {
-            const avail = bankEngine.getAvailableCredit(this.selectedBankId);
-            if (previewCreditUsage > avail) {
-                bankWarning = `<div style="color:var(--pnl-negative);font-size:12px;margin-top:4px;">⚠ Exceeds credit limit</div>`;
-            }
-        }
-
-        const preview = this.el.querySelector('#trade-preview');
-        preview.innerHTML = `
-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-secondary);margin-bottom:4px;">TRADE PREVIEW</div>
-            <div class="readable-text" style="font-size:14px;">
-                <div style="display:flex;justify-content:space-between;">
-                    <span style="color:var(--text-muted)">Notional:</span>
-                    <span>${formatCurrency(notional, exp.unit, true)}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;">
-                    <span style="color:var(--text-muted)">Rate:</span>
-                    <span style="color:var(--cyan)">${formatRate(contractRate, 4, exp.type)}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;">
-                    <span style="color:var(--text-muted)">Tenor:</span>
-                    <span>Q+${tenor}</span>
-                </div>
-                ${premiumInfo}
-                <div style="display:flex;justify-content:space-between;color:var(--text-muted);">
-                    <span>Bid-offer cost:</span>
-                    <span>${formatCurrency(tradingCost, '', true)}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;color:var(--text-muted);">
-                    <span>Credit usage:</span>
-                    <span>${previewCreditUsage === 0 ? 'None' : formatCurrency(previewCreditUsage, '', true)}</span>
-                </div>
-                ${bankWarning}
-            </div>
-        `;
+        // Now handled by renderBankExecuteButtons
+        this.renderBankExecuteButtons();
     }
 
-    executeHedge() {
+    executeHedgeViaBank(bankId) {
         if (!this.selectedExposure || !this.hedgeLadder || !this.tradeDirectionConfirmed) {
             this.app.showToast('Select an exposure and confirm direction first', 'warning');
             return;
@@ -729,19 +671,19 @@ export class DashboardScreen {
 
         const state = gameState.get();
         const exp = this.selectedExposure;
-
-        // Get all tenor buckets that changed from existing coverage
-        const changes = this.hedgeLadder.getChangedBuckets();
+        const changes = this.hedgeLadder.getChangedBuckets().filter(c => c.deltaPct > 0);
 
         if (changes.length === 0) {
-            this.app.showToast('Adjust hedge sliders to set coverage', 'warning');
+            this.app.showToast('Adjust coverage sliders to set hedging', 'warning');
             return;
         }
 
-        // Use live Bloomberg price if quarter is active
+        // Get bank-specific rate from stored offers
+        const offer = this._bankOffers?.find(o => o.bank.id === bankId);
+        if (!offer) return;
+
         const livePrice = (this.quarterStarted && this.bloombergTerminal && this.bloombergTerminal.underlying === exp.underlying)
-            ? this.bloombergTerminal.getCurrentPrice()
-            : 0;
+            ? this.bloombergTerminal.getCurrentPrice() : 0;
         const currentRate = (livePrice > 0) ? livePrice : (state.currentRates[exp.underlying] || 0);
 
         const productType = this.selectedProductId?.split('_').pop() || 'forward';
@@ -750,19 +692,15 @@ export class DashboardScreen {
         let tradesBooked = 0;
 
         for (const { tenor, deltaPct } of changes) {
-            if (deltaPct <= 0) continue; // only book new hedging (unwinding handled separately)
-
             const notional = exp.quarterlyNotional * deltaPct;
             if (notional <= 0) continue;
 
-            // Check hedge limits
             const currentHedgeRatio = gameLoop.getHedgeRatio(exp.underlying);
             if (currentHedgeRatio + deltaPct > GAME_CONFIG.MAX_HEDGE_RATIO) {
                 this.app.showToast(`Cannot exceed ${GAME_CONFIG.MAX_HEDGE_RATIO * 100}% hedge ratio`, 'warning');
                 break;
             }
 
-            // Credit usage
             let creditUsage = notional;
             if (productType === 'option' || productType === 'cap') {
                 creditUsage = 0;
@@ -770,15 +708,15 @@ export class DashboardScreen {
                 creditUsage = notional / 4;
             }
 
-            if (this.selectedBankId && creditUsage > 0) {
-                const avail = bankEngine.getAvailableCredit(this.selectedBankId);
+            if (creditUsage > 0) {
+                const avail = bankEngine.getAvailableCredit(bankId);
                 if (creditUsage > avail) {
-                    this.app.showToast('Exceeds bank credit limit', 'warning');
+                    this.app.showToast(`${offer.bank.shortName}: insufficient credit`, 'warning');
                     break;
                 }
             }
 
-            // Create trade
+            // Use the bank-specific rate (mid + bank spread)
             const hedge = hedgingEngine.createTrade({
                 exposure: exp,
                 productId: this.selectedProductId || 'fx_forward',
@@ -788,7 +726,7 @@ export class DashboardScreen {
                 rBase: 0.03,
                 rQuote: 0.04,
                 currentQuarter: state.totalQuartersPlayed,
-                bankId: this.selectedBankId
+                bankId
             });
 
             if (hedge.premiumPaid > 0) {
@@ -800,8 +738,8 @@ export class DashboardScreen {
             this.tradesThisQuarter++;
             this.tradingCostsThisQuarter += tradingCost;
 
-            if (this.selectedBankId && creditUsage > 0) {
-                bankEngine.allocateTrade(this.selectedBankId, hedge.id, creditUsage);
+            if (creditUsage > 0) {
+                bankEngine.allocateTrade(bankId, hedge.id, creditUsage);
             }
 
             gameState.addHedge(hedge);
@@ -812,12 +750,34 @@ export class DashboardScreen {
         if (tradesBooked > 0) {
             soundFX.tradeExecute();
 
-            if (this.tradesThisQuarter > 3) {
-                this.app.showToast('Excessive trading! Costs are mounting.', 'warning');
+            // Check if player picked best price
+            const pickedBest = Math.abs(offer.bankRate - this._bestBankRate) < 1e-10;
+            const requiresDiv = this._requiresDiversification;
+
+            // Satisfaction logic: penalise for not picking best price (unless diversification needed)
+            if (!pickedBest && !requiresDiv) {
+                // Chose a worse price with no diversification reason — board unhappy
+                gameState.adjustSatisfaction(-2);
+                this.app.showToast(`${offer.bank.shortName}: hedges booked but not best price — board noticed`, 'warning');
+            } else if (pickedBest && requiresDiv) {
+                // Picked best price but policy requires diversification — check concentration
+                const bankTrades = (state.hedgePortfolio || []).filter(h => h.bankId === bankId && h.status === 'active');
+                const totalActive = (state.hedgePortfolio || []).filter(h => h.status === 'active');
+                const concentration = totalActive.length > 0 ? bankTrades.length / totalActive.length : 0;
+                if (concentration > 0.6) {
+                    gameState.adjustSatisfaction(-2);
+                    this.app.showToast(`${offer.bank.shortName}: best price, but too concentrated — diversify!`, 'warning');
+                } else {
+                    const premNote = totalPremium > 0 ? ` (premium: ${formatCurrency(totalPremium, '', true)})` : '';
+                    this.app.showToast(`${offer.bank.shortName}: ${formatCurrency(totalNotionalBooked, '', true)} booked${premNote}`, 'success');
+                }
             } else {
                 const premNote = totalPremium > 0 ? ` (premium: ${formatCurrency(totalPremium, '', true)})` : '';
-                const tenorNote = tradesBooked > 1 ? ` across ${tradesBooked} tenors` : '';
-                this.app.showToast(`${exp.underlying} hedges booked: ${formatCurrency(totalNotionalBooked, '', true)}${tenorNote}${premNote}`, 'success');
+                this.app.showToast(`${offer.bank.shortName}: ${formatCurrency(totalNotionalBooked, '', true)} booked${premNote}`, 'success');
+            }
+
+            if (this.tradesThisQuarter > 3) {
+                this.app.showToast('Excessive trading! Costs are mounting.', 'warning');
             }
         }
 
@@ -827,8 +787,6 @@ export class DashboardScreen {
         this.renderPortfolio();
         this.renderBanksView();
         this.updateTradeCountBadge();
-
-        // Re-select to refresh hedge ratios in ladder
         this.selectExposure(exp.underlying);
     }
 
@@ -925,7 +883,6 @@ export class DashboardScreen {
 
         // Hide downstream controls
         this.el.querySelector('#product-selector').style.display = 'none';
-        this.el.querySelector('#bank-selector').style.display = 'none';
         this.el.querySelector('#hedge-ladder-container').style.display = 'none';
         this.el.querySelector('#trade-execution').style.display = 'none';
 

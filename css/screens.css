@@ -295,7 +295,8 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
+    overflow: hidden;
+    min-height: 0;
 }
 
 .dashboard-footer {
