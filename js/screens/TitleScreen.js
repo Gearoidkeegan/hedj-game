@@ -25,7 +25,7 @@ export class TitleScreen {
             <div class="title-version">v0.1</div>
 
             <div class="title-logo">
-                <canvas id="hedj-logo-canvas" width="180" height="50" style="margin:0 auto 6px;display:block;"></canvas>
+                <canvas id="hedj-logo-canvas" width="180" height="110" style="margin:0 auto 6px;display:block;"></canvas>
                 <h1>TREASURY<br>MANAGER<br>SIMULATOR</h1>
                 <div class="subtitle">Can you survive the boardroom?</div>
             </div>
@@ -383,13 +383,48 @@ export class TitleScreen {
 
         ctx.clearRect(0, 0, w, h);
 
-        // Hedj green/teal color scheme
+        // === Draw the Hedj icon (3 overlapping rounded rectangles + circle) ===
+        const iconCx = w / 2;
+        const iconTop = 2;
+        const iconScale = 0.75;
+
+        ctx.save();
+        ctx.translate(iconCx, iconTop);
+
+        // Green tall rounded rectangle (tilted left) — back layer
+        ctx.save();
+        ctx.translate(-8 * iconScale, 22 * iconScale);
+        ctx.rotate(-0.15);
+        this.drawRoundedRect(ctx, -14 * iconScale, -22 * iconScale, 28 * iconScale, 52 * iconScale, 6 * iconScale, '#3cb88c');
+        ctx.restore();
+
+        // Grey/blue rounded rectangle (overlapping, tilted right slightly)
+        ctx.save();
+        ctx.translate(2 * iconScale, 24 * iconScale);
+        ctx.rotate(0.05);
+        this.drawRoundedRect(ctx, -13 * iconScale, -20 * iconScale, 26 * iconScale, 48 * iconScale, 6 * iconScale, '#94a3b8');
+        ctx.restore();
+
+        // Orange rounded rectangle (tilted right more, offset right)
+        ctx.save();
+        ctx.translate(12 * iconScale, 18 * iconScale);
+        ctx.rotate(0.25);
+        this.drawRoundedRect(ctx, -12 * iconScale, -18 * iconScale, 24 * iconScale, 40 * iconScale, 6 * iconScale, '#e8923e');
+        ctx.restore();
+
+        // Yellow/gold circle (bottom right)
+        ctx.beginPath();
+        ctx.arc(16 * iconScale, 42 * iconScale, 8 * iconScale, 0, Math.PI * 2);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fill();
+
+        ctx.restore();
+
+        // === Draw "HEDJ" in pixel-art block letters below the icon ===
         const primary = '#00b894';
         const primaryDark = '#009874';
         const accent = '#ffcc00';
 
-        // Draw "hedj" in pixel-art block letters
-        // Each letter is defined as a grid of filled cells
         const letters = {
             H: [
                 [1,0,0,1],
@@ -424,10 +459,10 @@ export class TitleScreen {
         const word = ['H', 'E', 'D', 'J'];
         const letterW = 4;
         const letterH = 5;
-        const gap = 1; // gap between letters in grid cells
+        const gap = 1;
         const totalW = word.length * (letterW + gap) - gap;
         const startX = Math.floor((w - totalW * px) / 2);
-        const startY = Math.floor((h - letterH * px) / 2) - 4;
+        const startY = 72; // below the icon
 
         // Shadow pass
         for (let li = 0; li < word.length; li++) {
@@ -450,10 +485,8 @@ export class TitleScreen {
             for (let r = 0; r < letterH; r++) {
                 for (let c = 0; c < letterW; c++) {
                     if (grid[r][c]) {
-                        // Top highlight
                         ctx.fillStyle = r === 0 ? '#33ddb0' : primary;
                         ctx.fillRect(ox + c * px, startY + r * px, px, px);
-                        // Bottom edge darken
                         if (r === letterH - 1 || (r < letterH - 1 && !grid[r + 1][c])) {
                             ctx.fillStyle = primaryDark;
                             ctx.fillRect(ox + c * px, startY + r * px + px - 1, px, 1);
@@ -468,13 +501,29 @@ export class TitleScreen {
         ctx.fillStyle = accent;
         ctx.fillRect(startX, barY, totalW * px, 2);
 
-        // "FINANCIAL SERVICES" subtitle below
+        // "FINANCIAL SERVICES" subtitle
         ctx.font = '7px monospace';
         ctx.fillStyle = '#88aacc';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText('FINANCIAL SERVICES', w / 2, barY + 5);
         ctx.textAlign = 'left';
+    }
+
+    drawRoundedRect(ctx, x, y, w, h, r, color) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
     }
 
     animateBackground() {
