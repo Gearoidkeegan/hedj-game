@@ -234,6 +234,16 @@ export class SetupScreen {
         // the dashboard screen transition and StressFace reads gender on mount
         const selectedGender = this.el.querySelector('.char-btn.selected')?.dataset.gender || 'male';
 
+        // Reset all engines BEFORE the dashboard mounts to avoid carrying
+        // state (banks, hedges, events) from a previous playthrough.
+        gameState.reset();
+        if (!isCareer) {
+            const numBanks = rng.intRange(1, 3);
+            const creditLimit = Math.round(industry.annualRevenue * 0.15);
+            bankEngine.init(numBanks, creditLimit, rng);
+            eventEngine.reset();
+        }
+
         gameLoop.startGame({
             playerName: playerName || 'Treasury Manager',
             industry,
@@ -248,11 +258,7 @@ export class SetupScreen {
             // Career mode: let CareerEngine set up banks, events, board, and state overrides
             careerEngine.initLevel(industry, rng);
         } else {
-            // Quick play: standard setup
-            const numBanks = rng.intRange(1, 3);
-            const creditLimit = Math.round(industry.annualRevenue * 0.15);
-            bankEngine.init(numBanks, creditLimit, rng);
-            eventEngine.reset();
+            // Quick play: assign CEO persona now that the seeded RNG exists
             boardAI.assignCEOPersona(gameState.getRng());
         }
 

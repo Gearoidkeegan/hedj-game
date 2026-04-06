@@ -154,14 +154,16 @@ export class GameOverScreen {
             <!-- Hedj branding -->
             <div style="margin-top:20px;text-align:center;">
                 <div style="margin-bottom:8px;">
-                    <canvas id="qr-canvas" width="100" height="100" style="image-rendering:pixelated;border:2px solid var(--border-inner);"></canvas>
+                    <a href="https://hedj.eu" target="_blank" rel="noopener">
+                        <img id="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=4&data=https%3A%2F%2Fhedj.eu" alt="Scan to visit hedj.eu" width="100" height="100" style="border:2px solid var(--border-inner);background:#fff;display:block;margin:0 auto;" />
+                    </a>
                 </div>
                 <div class="pixel-text" style="font-size:8px;color:var(--gold);margin-bottom:4px;">POWERED BY HEDJ</div>
                 <div class="readable-text" style="font-size:14px;color:var(--text-secondary);">
                     Treasury Risk Management Solutions
                 </div>
-                <div class="readable-text" style="font-size:13px;color:var(--cyan);margin-top:4px;">
-                    hedj.eu
+                <div class="readable-text" style="font-size:13px;margin-top:4px;">
+                    <a href="https://hedj.eu" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:underline;">hedj.eu</a>
                 </div>
             </div>
         `;
@@ -209,9 +211,6 @@ export class GameOverScreen {
             });
         });
 
-        // Render QR code (simple pixel-art representation pointing to hedj.eu)
-        this.renderQRCode();
-
         // Reveal the hidden year after a dramatic pause
         this.revealYear();
     }
@@ -250,79 +249,6 @@ export class GameOverScreen {
     }
 
     unmount() {}
-
-    renderQRCode() {
-        const canvas = this.el.querySelector('#qr-canvas');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-        const size = 100;
-        const moduleSize = 4;
-        const modules = Math.floor(size / moduleSize); // 25x25 grid
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, size, size);
-        ctx.fillStyle = '#000000';
-
-        // Draw finder patterns (three corners)
-        const drawFinder = (ox, oy) => {
-            // Outer 7x7 border
-            for (let i = 0; i < 7; i++) {
-                for (let j = 0; j < 7; j++) {
-                    if (i === 0 || i === 6 || j === 0 || j === 6 ||
-                        (i >= 2 && i <= 4 && j >= 2 && j <= 4)) {
-                        ctx.fillRect((ox + j) * moduleSize, (oy + i) * moduleSize, moduleSize, moduleSize);
-                    }
-                }
-            }
-        };
-
-        drawFinder(0, 0);           // Top-left
-        drawFinder(modules - 7, 0); // Top-right
-        drawFinder(0, modules - 7); // Bottom-left
-
-        // Timing patterns (alternating dots between finders)
-        for (let i = 8; i < modules - 8; i++) {
-            if (i % 2 === 0) {
-                ctx.fillRect(i * moduleSize, 6 * moduleSize, moduleSize, moduleSize);
-                ctx.fillRect(6 * moduleSize, i * moduleSize, moduleSize, moduleSize);
-            }
-        }
-
-        // Encode "hedj.eu" as a seeded pseudo-random data pattern
-        const text = 'hedj.eu';
-        let seed = 0;
-        for (let i = 0; i < text.length; i++) seed = (seed * 31 + text.charCodeAt(i)) | 0;
-
-        const isFinderArea = (x, y) => {
-            return (x < 9 && y < 9) ||
-                   (x >= modules - 8 && y < 9) ||
-                   (x < 9 && y >= modules - 8);
-        };
-
-        for (let y = 0; y < modules; y++) {
-            for (let x = 0; x < modules; x++) {
-                if (isFinderArea(x, y)) continue;
-                if ((x === 6 || y === 6) && x < modules && y < modules) continue;
-
-                seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-                if (seed % 3 === 0) {
-                    ctx.fillRect(x * moduleSize, y * moduleSize, moduleSize, moduleSize);
-                }
-            }
-        }
-
-        // Small alignment pattern at center
-        const cx = Math.floor(modules / 2);
-        const cy = Math.floor(modules / 2);
-        for (let i = -2; i <= 2; i++) {
-            for (let j = -2; j <= 2; j++) {
-                if (Math.abs(i) === 2 || Math.abs(j) === 2 || (i === 0 && j === 0)) {
-                    ctx.fillRect((cx + j) * moduleSize, (cy + i) * moduleSize, moduleSize, moduleSize);
-                }
-            }
-        }
-    }
 
     renderScoreBar(label, score, weight) {
         const weighted = score * weight;

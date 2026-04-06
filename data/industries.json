@@ -356,26 +356,6 @@
             "scene": "building_site",
             "exposures": [
                 {
-                    "id": "gbp-revenue",
-                    "type": "fx",
-                    "underlying": "EURGBP",
-                    "direction": "sell",
-                    "quarterlyNotional": 100000000,
-                    "unit": "GBP",
-                    "budgetRateSpread": 0.015,
-                    "description": "UK infrastructure project revenue"
-                },
-                {
-                    "id": "usd-equipment",
-                    "type": "fx",
-                    "underlying": "EURUSD",
-                    "direction": "buy",
-                    "quarterlyNotional": 50000000,
-                    "unit": "USD",
-                    "budgetRateSpread": 0.02,
-                    "description": "US equipment and machinery imports"
-                },
-                {
                     "id": "steel",
                     "type": "commodity",
                     "underlying": "STEEL",
@@ -395,6 +375,26 @@
                     "unit": "USD",
                     "budgetRateSpread": 0.04,
                     "description": "Copper wiring and electrical systems"
+                },
+                {
+                    "id": "gbp-revenue",
+                    "type": "fx",
+                    "underlying": "EURGBP",
+                    "direction": "sell",
+                    "quarterlyNotional": 100000000,
+                    "unit": "GBP",
+                    "budgetRateSpread": 0.015,
+                    "description": "UK infrastructure project revenue"
+                },
+                {
+                    "id": "usd-equipment",
+                    "type": "fx",
+                    "underlying": "EURUSD",
+                    "direction": "buy",
+                    "quarterlyNotional": 50000000,
+                    "unit": "USD",
+                    "budgetRateSpread": 0.02,
+                    "description": "US equipment and machinery imports"
                 },
                 {
                     "id": "floating-debt",

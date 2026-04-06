@@ -549,8 +549,13 @@ export class DashboardScreen {
             ? this.bloombergTerminal.getCurrentPrice() : 0;
         const currentRate = (livePrice > 0) ? livePrice : (state.currentRates[exp.underlying] || 0);
 
+        // Determine product type and whether it's a premium-paying product
+        const productType = this.selectedProductId?.split('_').pop() || 'forward';
+        const isPremiumProduct = productType === 'option' || productType === 'cap';
+
         // Price the product at mid
         let midRate = currentRate;
+        let midPremium = 0; // for option/cap, premium per 1 unit notional
         if (this.selectedProductId) {
             if (this.selectedProductId.includes('forward') || this.selectedProductId.includes('future')) {
                 const { tenor } = this.hedgeLadder.getSelection();
@@ -560,6 +565,16 @@ export class DashboardScreen {
             } else if (this.selectedProductId === 'ir_swap') {
                 const { tenor } = this.hedgeLadder.getSelection();
                 midRate = hedgingEngine.priceIRSwap(currentRate, tenor);
+            } else if (this.selectedProductId === 'ir_cap') {
+                const { tenor } = this.hedgeLadder.getSelection();
+                const cap = hedgingEngine.priceIRCap(currentRate, tenor);
+                midRate = cap.strike;
+                midPremium = cap.premium; // fraction of notional
+            } else if (productType === 'option') {
+                const { tenor } = this.hedgeLadder.getSelection();
+                const opt = hedgingEngine.priceOption(currentRate, null, tenor, exp.type);
+                midRate = opt.strike;
+                midPremium = opt.premiumPct; // fraction of notional
             }
         }
 
@@ -568,21 +583,44 @@ export class DashboardScreen {
         const requiresDiversification = policy && policy.rules &&
             policy.rules.some(r => r.toLowerCase().includes('diversif') || r.toLowerCase().includes('no single bank'));
 
+        // Credit usage for credit-line check (option/cap don't consume bank lines)
+        const creditUsageForCheck = isPremiumProduct
+            ? 0
+            : (productType === 'swap' ? totalNewNotional / 4 : totalNewNotional);
+
         // Build per-bank pricing
         const bankOffers = banks.map(bank => {
-            const spread = this.getBankPricingSpread(bank);
-            // For buy direction, lower rate = better. For sell, higher = better.
+            const spreadBps = bank.tier === 1 ? 3 : 8;
+            // For premium products, the bank "spread" inflates the premium instead of the rate.
+            // Premium spread: tier1 ~3%, tier2 ~8% premium markup.
+            const premiumMarkup = bank.tier === 1 ? 0.03 : 0.08;
+            const spread = isPremiumProduct ? 0 : this.getBankPricingSpread(bank);
             const direction = exp.direction === 'buy' ? 1 : -1;
-            const bankRate = midRate + (spread * direction);
+            const bankRate = isPremiumProduct ? midRate : midRate + (spread * direction);
+            const bankPremium = isPremiumProduct ? midPremium * (1 + premiumMarkup) : 0;
+            const bankPremiumCash = bankPremium * totalNewNotional;
             const avail = bankEngine.getAvailableCredit(bank.id);
-            const hasCredit = avail >= totalNewNotional;
-            return { bank, bankRate, spread, hasCredit, avail };
+            const hasCredit = creditUsageForCheck === 0 ? true : avail >= creditUsageForCheck;
+            // For premium products, also check player has enough cash for the premium
+            const hasCash = isPremiumProduct ? bankPremiumCash <= state.cashBalance : true;
+            return { bank, bankRate, bankPremium, bankPremiumCash, spread, premiumMarkup, hasCredit, hasCash, avail };
         });
 
-        // Find best price
-        const bestRate = exp.direction === 'buy'
-            ? Math.min(...bankOffers.filter(o => o.hasCredit).map(o => o.bankRate))
-            : Math.max(...bankOffers.filter(o => o.hasCredit).map(o => o.bankRate));
+        // Find best offer (lowest premium for premium products; best rate for forwards/swaps)
+        const tradableOffers = bankOffers.filter(o => o.hasCredit && o.hasCash);
+        let bestRate, bestPremium;
+        if (isPremiumProduct) {
+            bestPremium = tradableOffers.length > 0
+                ? Math.min(...tradableOffers.map(o => o.bankPremium))
+                : Infinity;
+            bestRate = midRate;
+        } else {
+            bestRate = tradableOffers.length > 0
+                ? (exp.direction === 'buy'
+                    ? Math.min(...tradableOffers.map(o => o.bankRate))
+                    : Math.max(...tradableOffers.map(o => o.bankRate)))
+                : 0;
+        }
 
         // Summary line
         let html = `<div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-secondary);margin-bottom:4px;">
@@ -593,18 +631,28 @@ export class DashboardScreen {
         html += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
 
         for (const offer of bankOffers) {
-            const isBest = Math.abs(offer.bankRate - bestRate) < 1e-10;
-            const borderColor = !offer.hasCredit ? 'var(--pnl-negative)' : isBest ? 'var(--pnl-positive)' : 'var(--border-inner)';
-            const rateColor = isBest ? 'var(--pnl-positive)' : 'var(--text-primary)';
+            const tradable = offer.hasCredit && offer.hasCash;
+            const isBest = tradable && (isPremiumProduct
+                ? Math.abs(offer.bankPremium - bestPremium) < 1e-10
+                : Math.abs(offer.bankRate - bestRate) < 1e-10);
+            const borderColor = !tradable ? 'var(--pnl-negative)' : isBest ? 'var(--pnl-positive)' : 'var(--border-inner)';
+            const priceColor = isBest ? 'var(--pnl-positive)' : 'var(--text-primary)';
+            const disableTitle = !offer.hasCash ? 'Insufficient cash for premium' : !offer.hasCredit ? 'Insufficient credit' : '';
+
+            // Premium products show premium $ amount, others show rate
+            const priceLine = isPremiumProduct
+                ? `<div class="pixel-text" style="font-size:9px;color:${priceColor};margin:2px 0;">PREM ${formatCurrency(offer.bankPremiumCash, '', true)}</div>
+                   <div class="pixel-text" style="font-size:6px;color:var(--text-muted);">strike ${formatRate(offer.bankRate, 4, exp.type)}</div>`
+                : `<div class="pixel-text" style="font-size:9px;color:${priceColor};margin:2px 0;">${formatRate(offer.bankRate, 4, exp.type)}</div>
+                   <div class="pixel-text" style="font-size:6px;color:var(--text-muted);">${formatCurrency(offer.avail, '', true)} avail</div>`;
 
             html += `
                 <button class="btn bank-execute-btn" data-bank-id="${offer.bank.id}"
-                    style="flex:1;min-width:80px;padding:6px 4px;text-align:center;border-color:${borderColor};${!offer.hasCredit ? 'opacity:0.4;' : ''}"
-                    ${!offer.hasCredit ? 'disabled title="Insufficient credit"' : ''}>
+                    style="flex:1;min-width:80px;padding:6px 4px;text-align:center;border-color:${borderColor};${!tradable ? 'opacity:0.4;' : ''}"
+                    ${!tradable ? `disabled title="${disableTitle}"` : ''}>
                     <div class="pixel-text" style="font-size:8px;color:var(--cyan);">${offer.bank.shortName}</div>
-                    <div class="pixel-text" style="font-size:9px;color:${rateColor};margin:2px 0;">${formatRate(offer.bankRate, 4, exp.type)}</div>
-                    <div class="pixel-text" style="font-size:6px;color:var(--text-muted);">${formatCurrency(offer.avail, '', true)} avail</div>
-                    ${isBest && offer.hasCredit ? '<div class="pixel-text" style="font-size:6px;color:var(--pnl-positive);">BEST</div>' : ''}
+                    ${priceLine}
+                    ${isBest ? '<div class="pixel-text" style="font-size:6px;color:var(--pnl-positive);">BEST</div>' : ''}
                 </button>
             `;
         }
@@ -620,6 +668,8 @@ export class DashboardScreen {
         // Store offers for execute logic
         this._bankOffers = bankOffers;
         this._bestBankRate = bestRate;
+        this._bestBankPremium = bestPremium;
+        this._isPremiumProduct = isPremiumProduct;
         this._requiresDiversification = requiresDiversification;
 
         // Wire up bank execute buttons
@@ -680,6 +730,18 @@ export class DashboardScreen {
         const currentRate = (livePrice > 0) ? livePrice : (state.currentRates[exp.underlying] || 0);
 
         const productType = this.selectedProductId?.split('_').pop() || 'forward';
+        const isPremiumProduct = productType === 'option' || productType === 'cap';
+
+        // Pre-check: if this is a premium product, ensure player has enough cash
+        // for the total premium across all tenors before booking anything.
+        if (isPremiumProduct) {
+            const expectedPremium = (offer.bankPremiumCash || 0);
+            if (expectedPremium > state.cashBalance) {
+                this.app.showToast(`Insufficient cash for premium (${formatCurrency(expectedPremium, '', true)} needed, ${formatCurrency(state.cashBalance, '', true)} available)`, 'error');
+                return;
+            }
+        }
+
         let totalNotionalBooked = 0;
         let totalPremium = 0;
         let tradesBooked = 0;
@@ -723,7 +785,12 @@ export class DashboardScreen {
             });
 
             if (hedge.premiumPaid > 0) {
-                gameState.update({ cashBalance: gameState.get().cashBalance - hedge.premiumPaid });
+                const cashNow = gameState.get().cashBalance;
+                if (hedge.premiumPaid > cashNow) {
+                    this.app.showToast(`Insufficient cash for premium on Q+${tenor}`, 'error');
+                    break;
+                }
+                gameState.update({ cashBalance: cashNow - hedge.premiumPaid });
                 totalPremium += hedge.premiumPaid;
             }
 
