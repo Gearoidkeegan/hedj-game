@@ -25,7 +25,7 @@ export class TitleScreen {
             <div class="title-version">v0.1</div>
 
             <div class="title-logo">
-                <canvas id="hedj-logo-canvas" width="180" height="110" style="margin:0 auto 6px;display:block;"></canvas>
+                <img src="assets/images/hedj-logo.png" alt="Hedj" style="width:90px;height:auto;margin:0 auto 8px;display:block;image-rendering:auto;" />
                 <h1>TREASURY<br>MANAGER<br>SIMULATOR</h1>
                 <div class="subtitle">Can you survive the boardroom?</div>
             </div>
@@ -87,9 +87,6 @@ export class TitleScreen {
         this.el.querySelector('#btn-leaderboard').addEventListener('click', () => {
             this.showLeaderboard();
         });
-
-        // Draw Hedj logo
-        this.drawHedjLogo();
 
         // Animate background
         this.animateBackground();
@@ -373,180 +370,6 @@ export class TitleScreen {
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     }
 
-    drawHedjLogo() {
-        const canvas = this.el.querySelector('#hedj-logo-canvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        const w = canvas.width;
-        const h = canvas.height;
-        const px = 3; // pixel size for retro feel
-
-        ctx.clearRect(0, 0, w, h);
-
-        // === Hedj brand logo ===
-        // Green upright rounded rect + orange same-size rect pivoted from shared
-        // bottom-left corner, tilting right. Overlap area is grey/blue.
-        // Yellow dot bisects the lower long edge of the orange rect.
-
-        const s = 0.85;
-        const rectW = 26 * s;
-        const rectH = 56 * s;
-        const r = 5 * s;
-        const pivotX = w / 2 - 8 * s;   // bottom-left corner (shared)
-        const pivotY = 4 + rectH;        // bottom of the green rect
-        const angle = 0.38;              // orange tilt angle (radians, ~22°)
-
-        // 1. Draw green rect (upright)
-        this.drawRoundedRect(ctx, pivotX - rectW, pivotY - rectH, rectW, rectH, r, '#3cb88c');
-
-        // 2. Draw orange rect (rotated from bottom-left corner)
-        ctx.save();
-        ctx.translate(pivotX, pivotY);
-        ctx.rotate(angle);
-        this.drawRoundedRect(ctx, 0, -rectH, rectW, rectH, r, '#e8923e');
-        ctx.restore();
-
-        // 3. Draw grey/blue overlap: clip to green rect, then fill orange rect shape
-        ctx.save();
-        // Clip to green rect region
-        this.buildRoundedRectPath(ctx, pivotX - rectW, pivotY - rectH, rectW, rectH, r);
-        ctx.clip();
-        // Draw the orange rect shape again, but in grey/blue — only visible in overlap
-        ctx.translate(pivotX, pivotY);
-        ctx.rotate(angle);
-        this.drawRoundedRect(ctx, 0, -rectH, rectW, rectH, r, '#94a3b8');
-        ctx.restore();
-
-        // 4. Yellow dot — bisects the lower long side of orange rect
-        // The midpoint of orange rect's right edge (long side), in rotated coords:
-        // right edge midpoint = (rectW, -rectH/2), rotated by angle around pivot
-        const dotLocalX = rectW;
-        const dotLocalY = -rectH * 0.08; // near bottom of the right edge
-        const dotX = pivotX + dotLocalX * Math.cos(angle) - dotLocalY * Math.sin(angle);
-        const dotY = pivotY + dotLocalX * Math.sin(angle) + dotLocalY * Math.cos(angle);
-        ctx.beginPath();
-        ctx.arc(dotX, dotY, 8 * s, 0, Math.PI * 2);
-        ctx.fillStyle = '#fbbf24';
-        ctx.fill();
-
-        // === Draw "HEDJ" in pixel-art block letters below the icon ===
-        const primary = '#00b894';
-        const primaryDark = '#009874';
-
-        const letters = {
-            H: [
-                [1,0,0,1],
-                [1,0,0,1],
-                [1,1,1,1],
-                [1,0,0,1],
-                [1,0,0,1],
-            ],
-            E: [
-                [1,1,1,1],
-                [1,0,0,0],
-                [1,1,1,0],
-                [1,0,0,0],
-                [1,1,1,1],
-            ],
-            D: [
-                [1,1,1,0],
-                [1,0,0,1],
-                [1,0,0,1],
-                [1,0,0,1],
-                [1,1,1,0],
-            ],
-            J: [
-                [0,0,0,1],
-                [0,0,0,1],
-                [0,0,0,1],
-                [1,0,0,1],
-                [0,1,1,0],
-            ],
-        };
-
-        const word = ['H', 'E', 'D', 'J'];
-        const letterW = 4;
-        const letterH = 5;
-        const gap = 1;
-        const totalW = word.length * (letterW + gap) - gap;
-        const startX = Math.floor((w - totalW * px) / 2);
-        const startY = 72; // below the icon
-
-        // Shadow pass
-        for (let li = 0; li < word.length; li++) {
-            const grid = letters[word[li]];
-            const ox = startX + li * (letterW + gap) * px;
-            for (let r = 0; r < letterH; r++) {
-                for (let c = 0; c < letterW; c++) {
-                    if (grid[r][c]) {
-                        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                        ctx.fillRect(ox + c * px + 1, startY + r * px + 1, px, px);
-                    }
-                }
-            }
-        }
-
-        // Main pass
-        for (let li = 0; li < word.length; li++) {
-            const grid = letters[word[li]];
-            const ox = startX + li * (letterW + gap) * px;
-            for (let r = 0; r < letterH; r++) {
-                for (let c = 0; c < letterW; c++) {
-                    if (grid[r][c]) {
-                        ctx.fillStyle = r === 0 ? '#33ddb0' : primary;
-                        ctx.fillRect(ox + c * px, startY + r * px, px, px);
-                        if (r === letterH - 1 || (r < letterH - 1 && !grid[r + 1][c])) {
-                            ctx.fillStyle = primaryDark;
-                            ctx.fillRect(ox + c * px, startY + r * px + px - 1, px, 1);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Yellow dot over the J — replicating the logo's circle motif
-        // J starts at li=3, the dot sits above the rightmost column of J
-        const jStartX = startX + 3 * (letterW + gap) * px;
-        const jDotX = jStartX + 3 * px + Math.floor(px / 2); // center of J's right column
-        const jDotY = startY - 5; // above the J
-        ctx.beginPath();
-        ctx.arc(jDotX, jDotY, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#fbbf24';
-        ctx.fill();
-
-        // Underline accent bar
-        const barY = startY + letterH * px + 3;
-        ctx.fillStyle = '#ffcc00';
-        ctx.fillRect(startX, barY, totalW * px, 2);
-
-        // "FINANCIAL SERVICES" subtitle
-        ctx.font = '7px monospace';
-        ctx.fillStyle = '#88aacc';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText('FINANCIAL SERVICES', w / 2, barY + 5);
-        ctx.textAlign = 'left';
-    }
-
-    buildRoundedRectPath(ctx, x, y, w, h, r) {
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-        ctx.lineTo(x + r, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
-    }
-
-    drawRoundedRect(ctx, x, y, w, h, r, color) {
-        this.buildRoundedRectPath(ctx, x, y, w, h, r);
-        ctx.fillStyle = color;
-        ctx.fill();
-    }
 
     animateBackground() {
         const canvas = this.el.querySelector('#title-bg-canvas');
