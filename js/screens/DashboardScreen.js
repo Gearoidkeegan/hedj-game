@@ -129,12 +129,6 @@ export class DashboardScreen {
 
                             <!-- Hedge ladder -->
                             <div id="hedge-ladder-container" style="display:none;"></div>
-
-                            <!-- Active hedges summary -->
-                            <div class="mt-8">
-                                <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-secondary);padding:4px 8px;">ACTIVE HEDGES</div>
-                                <div id="active-hedges-list" class="panel-inset"></div>
-                            </div>
                         </div>
 
                         <!-- Fixed bottom: bank execute buttons (always visible) -->
@@ -186,7 +180,6 @@ export class DashboardScreen {
         this.renderMarketView();
         this.renderPortfolio();
         this.renderBanksView();
-        this.renderActiveHedges();
         this.renderPolicy();
         this.drawIsometricScene();
         this.updateTradeCountBadge();
@@ -783,7 +776,6 @@ export class DashboardScreen {
 
         // Refresh
         this.renderExposures();
-        this.renderActiveHedges();
         this.renderPortfolio();
         this.renderBanksView();
         this.updateTradeCountBadge();
@@ -1037,59 +1029,36 @@ export class DashboardScreen {
             `;
         }
 
-        container.innerHTML = html;
-    }
-
-    renderActiveHedges() {
-        const state = gameState.get();
-        const container = this.el.querySelector('#active-hedges-list');
-        const activeHedges = (state.hedgePortfolio || []).filter(h => h.status === 'active');
-
-        if (activeHedges.length === 0) {
-            container.innerHTML = '<div class="readable-text p-8" style="color:var(--text-muted);text-align:center;font-size:14px;">No active hedges</div>';
-            return;
-        }
-
-        // Summary totals
-        const totalNotional = activeHedges.reduce((sum, h) => sum + h.notional, 0);
-        const totalMtm = activeHedges.reduce((sum, h) => sum + (h.currentMtm || 0), 0);
-
-        // Bank usage summary
-        const bankSummary = bankEngine.getSummary();
-        const totalCredit = bankSummary.reduce((sum, b) => sum + b.creditLimit, 0);
-        const totalUsed = bankSummary.reduce((sum, b) => sum + b.usedLimit, 0);
-        const utilPct = totalCredit > 0 ? Math.round((totalUsed / totalCredit) * 100) : 0;
-
-        let html = `
-            <div style="display:flex;justify-content:space-between;padding:4px 6px;border-bottom:1px solid var(--border-inner);margin-bottom:4px;">
-                <span class="pixel-text" style="font-size:7px;color:var(--text-muted)">${activeHedges.length} HEDGES</span>
-                <span class="pixel-text" style="font-size:7px;color:var(--text-muted)">TOTAL: ${formatCurrency(totalNotional, '', true)}</span>
-                <span class="pixel-text ${pnlClass(totalMtm)}" style="font-size:7px">MTM: ${formatPnL(totalMtm)}</span>
+        // Request-from-board actions
+        const nextCost = 3 + Math.min(5, bankEngine.limitRequests);
+        html += `
+            <div style="display:flex;gap:6px;padding:6px 8px;border-top:1px solid var(--border-inner);margin-top:4px;">
+                <button class="btn" id="btn-request-bank" style="flex:1;font-size:10px;padding:4px 6px;min-height:28px;" title="Ask board to onboard a new counterparty">+ BANK</button>
+                <button class="btn" id="btn-request-limit" style="flex:1;font-size:10px;padding:4px 6px;min-height:28px;" title="Ask board to raise credit limits 25%">+ LIMIT</button>
             </div>
-            <div style="display:flex;justify-content:space-between;padding:2px 6px;margin-bottom:4px;">
-                <span class="pixel-text" style="font-size:7px;color:var(--text-muted)">CREDIT: ${formatCurrency(totalUsed, '', true)} / ${formatCurrency(totalCredit, '', true)}</span>
-                <span class="pixel-text" style="font-size:7px;color:${utilPct > 80 ? 'var(--pnl-negative)' : utilPct > 50 ? 'var(--gold)' : 'var(--pnl-positive)'}">${utilPct}% USED</span>
-            </div>
+            <div class="pixel-text" style="font-size:7px;color:var(--text-muted);text-align:center;padding:0 8px 4px;">Costs ~${nextCost} board satisfaction</div>
         `;
 
-        for (const hedge of activeHedges) {
-            const mtm = hedge.currentMtm || 0;
-            const bank = bankEngine.getActiveBanks().find(b => b.id === hedge.bankId);
-            const expiryQ = Math.max(0, hedge.maturityQuarter - state.totalQuartersPlayed);
-            html += `
-                <div class="active-hedge">
-                    <div style="display:flex;align-items:center;gap:4px;">
-                        <span class="hedge-type">${hedge.productType.toUpperCase()}</span>
-                        <span class="readable-text" style="font-size:14px;">${hedge.underlying}</span>
-                        <span class="pixel-text" style="font-size:6px;color:var(--text-muted)">Q+${expiryQ}</span>
-                    </div>
-                    <span class="readable-text" style="font-size:13px;color:var(--text-muted)">${formatCurrency(hedge.notional, '', true)}</span>
-                    <span class="readable-text" style="font-size:12px;color:var(--text-muted)">${bank?.shortName || ''}</span>
-                    <span class="hedge-mtm ${pnlClass(mtm)}">${formatPnL(mtm)}</span>
-                </div>
-            `;
-        }
         container.innerHTML = html;
+
+        const btnBank = container.querySelector('#btn-request-bank');
+        const btnLimit = container.querySelector('#btn-request-limit');
+        if (btnBank) btnBank.addEventListener('click', () => this.handleBankRequest('new_bank'));
+        if (btnLimit) btnLimit.addEventListener('click', () => this.handleBankRequest('increase_limit'));
+    }
+
+    handleBankRequest(type) {
+        const rng = gameState.getRng();
+        const result = bankEngine.requestFromBoard(type, rng);
+        if (result.success) {
+            gameState.adjustSatisfaction(-result.satisfactionCost);
+            this.app.showToast(result.message, 'success');
+            soundFX?.click?.();
+        } else {
+            this.app.showToast(result.message, 'error');
+        }
+        this.renderBanksView();
+        this.renderBankExecuteButtons();
     }
 
     renderPolicy() {
