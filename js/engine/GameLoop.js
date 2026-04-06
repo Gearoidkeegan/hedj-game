@@ -161,8 +161,11 @@ class GameLoopController {
 
             hedgePnL += mtmChange;
 
-            // Check if hedge matures this quarter
-            if (hedge.maturityQuarter <= state.totalQuartersPlayed + 1) {
+            // Check if hedge matures this quarter.
+            // maturityQuarter = TQP_at_book + tenorQuarters, so a Q+1 hedge booked at TQP=0
+            // has maturity=1 and should mature when TQP reaches 1 (i.e. the NEXT quarter's
+            // resolution), not in the same quarter it was booked.
+            if (hedge.maturityQuarter <= state.totalQuartersPlayed) {
                 hedge.status = 'matured';
                 cashImpact += hedge.currentMtm || 0;
                 settledHedges.push(hedge);

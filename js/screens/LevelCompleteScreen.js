@@ -29,9 +29,21 @@ export class LevelCompleteScreen {
 
         const passed = evaluation.passed && !state.firedByBoard;
         const gradeInfo = scoreEngine.getGrade(finalScore);
-        const flavourText = state.firedByBoard
-            ? (level?.flavourText?.fail || 'Game over.')
-            : careerEngine.getFlavourText(passed);
+
+        // Pick a reason-appropriate fail message instead of always using
+        // the level's "ran out of cash" line, which can contradict the actual state.
+        let flavourText;
+        if (state.firedByBoard) {
+            if (state.cashWentNegative || state.cashBalance < 0) {
+                flavourText = 'The company ran out of cash. Your LinkedIn now says "Open to Work".';
+            } else if (state.boardSatisfaction <= GAME_CONFIG.FIRE_THRESHOLD) {
+                flavourText = 'The board has lost confidence in you. Security is on the way to your desk.';
+            } else {
+                flavourText = level?.flavourText?.fail || 'The board has decided to part ways with you.';
+            }
+        } else {
+            flavourText = careerEngine.getFlavourText(passed);
+        }
 
         // Next level preview
         const nextLevelIdx = careerEngine.currentLevel + 1;

@@ -178,27 +178,27 @@ class BoardAIController {
         let delta = 0;
         const pnlCategory = this.getPnLCategory(result);
 
-        // Base delta from P&L
+        // Base delta from P&L — gains rebalanced upward so good play is meaningful
         switch (pnlCategory) {
             case 'good':
-                delta += member.personality === 'aggressive' ? 2 : member.personality === 'cautious' ? 3 : 1;
+                delta += member.personality === 'aggressive' ? 4 : member.personality === 'cautious' ? 5 : 3;
                 break;
             case 'bad':
-                delta += member.personality === 'aggressive' ? -5 : member.personality === 'cautious' ? -3 : -2;
+                delta += member.personality === 'aggressive' ? -4 : member.personality === 'cautious' ? -2 : -2;
                 break;
             case 'neutral':
-                delta += member.personality === 'aggressive' ? -1 : 0;
+                delta += member.personality === 'aggressive' ? 0 : 1;
                 break;
         }
 
         // Modifiers
-        if (result.marginCallAmount > 0) delta -= 3;
+        if (result.marginCallAmount > 0) delta -= 2;
         if (state.tradesThisQuarter > 3) delta -= 1;
         // Only penalize direction errors if trades were actually made this quarter
         if (state.tradeDirectionErrors > 0 && state.tradesThisQuarter > 0) delta -= 2;
 
         // Policy compliance bonus
-        if (this.wasInComplianceLastQuarter(state)) delta += 1;
+        if (this.wasInComplianceLastQuarter(state)) delta += 2;
 
         // Clamp
         return Math.max(GAME_CONFIG.SATISFACTION_LOSS_MAX / 3, Math.min(GAME_CONFIG.SATISFACTION_GAIN_MAX / 3, delta));

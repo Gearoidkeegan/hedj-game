@@ -68,6 +68,14 @@ class ScoreEngineController {
         // Previously this guaranteed C (60), which was too generous for catastrophic failures
         const complianceBonus = state.perfectCompliance ? Math.min(10, 100 - total) : 0;
 
+        let finalTotal = Math.min(100, total + complianceBonus);
+
+        // If the player was fired by the board, the grade must reflect that.
+        // Cap the total at the F threshold so the grade is always "Looking for Work".
+        if (state.firedByBoard) {
+            finalTotal = Math.min(finalTotal, 45);
+        }
+
         return {
             pnl: pnlScore,
             boardSatisfaction: boardScore,
@@ -78,7 +86,7 @@ class ScoreEngineController {
             diversificationBonus,
             directionPenalty,
             complianceBonus,
-            total: Math.min(100, total + complianceBonus)
+            total: finalTotal
         };
     }
 

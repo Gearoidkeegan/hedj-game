@@ -161,8 +161,8 @@ class EventEngineController {
         const state = gameState.get();
         const rng = gameState.getRng();
 
-        // Set cooldown (3 quarters by default)
-        const cooldownQuarters = 3;
+        // Set cooldown (4 quarters by default — same scenario can't repeat within a year)
+        const cooldownQuarters = 4;
         gameState.update({
             eventCooldowns: {
                 ...state.eventCooldowns,

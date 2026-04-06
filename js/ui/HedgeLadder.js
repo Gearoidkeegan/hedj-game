@@ -82,10 +82,11 @@ export class HedgeLadder {
 
         let html = `
             <div class="hedge-ladder">
-                <div class="hedge-ladder-header" style="display:grid;grid-template-columns:36px 1fr 44px 48px;gap:4px;align-items:center;padding:2px 4px;">
+                <div class="hedge-ladder-header" style="display:grid;grid-template-columns:36px 1fr 38px 38px 48px;gap:4px;align-items:center;padding:2px 4px;">
                     <span class="pixel-text" style="font-size:7px;color:var(--text-secondary)">TENOR</span>
                     <span class="pixel-text" style="font-size:7px;color:var(--text-secondary)">COVERAGE</span>
-                    <span class="pixel-text" style="font-size:7px;color:var(--text-secondary);text-align:right">%</span>
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-secondary);text-align:right" title="Existing coverage from booked hedges">EXIST</span>
+                    <span class="pixel-text" style="font-size:7px;color:var(--gold);text-align:right" title="Total coverage including current proposed trade">TOTAL</span>
                     <span class="pixel-text" style="font-size:7px;color:var(--text-secondary);text-align:right">NOTIONAL</span>
                 </div>
         `;
@@ -105,13 +106,16 @@ export class HedgeLadder {
                 : pct > 0 ? 'var(--gold)'
                 : 'var(--border-inner)';
 
+            const existingDisplay = Math.round(existingPct * 100);
+
             if (isPast) {
                 html += `
-                    <div class="hedge-ladder-row past" style="display:grid;grid-template-columns:36px 1fr 44px 48px;gap:4px;align-items:center;padding:3px 4px;opacity:0.35;text-decoration:line-through;">
+                    <div class="hedge-ladder-row past" style="display:grid;grid-template-columns:36px 1fr 38px 38px 48px;gap:4px;align-items:center;padding:3px 4px;opacity:0.35;text-decoration:line-through;">
                         <span class="hedge-ladder-tenor pixel-text" style="font-size:8px;">Q+${t}</span>
                         <div class="hedge-ladder-bar-container" style="position:relative;height:14px;background:var(--panel-bg);border-radius:2px;overflow:hidden;">
                             <div style="height:100%;width:${barWidth}%;background:${barColor};border-radius:2px;"></div>
                         </div>
+                        <span class="pixel-text" style="font-size:8px;text-align:right;color:var(--text-muted);">—</span>
                         <span class="pixel-text" style="font-size:8px;text-align:right;color:var(--text-muted);">${pctDisplay}%</span>
                         <span class="pixel-text" style="font-size:7px;text-align:right;color:var(--text-muted);">—</span>
                     </div>
@@ -119,14 +123,15 @@ export class HedgeLadder {
             } else {
                 html += `
                     <div class="hedge-ladder-row ${isSelected ? 'selected' : ''}" data-tenor="${t}"
-                         style="display:grid;grid-template-columns:36px 1fr 44px 48px;gap:4px;align-items:center;padding:3px 4px;cursor:pointer;${hasChange ? 'background:rgba(255,204,0,0.08);' : ''}">
+                         style="display:grid;grid-template-columns:36px 1fr 38px 38px 48px;gap:4px;align-items:center;padding:3px 4px;cursor:pointer;${hasChange ? 'background:rgba(255,204,0,0.08);' : ''}">
                         <span class="hedge-ladder-tenor pixel-text" style="font-size:8px;">Q+${t}</span>
                         <div style="position:relative;">
                             <input type="range" class="ladder-row-slider" data-tenor="${t}"
                                 min="0" max="200" step="10" value="${pctDisplay}"
                                 style="width:100%;height:18px;cursor:pointer;">
                         </div>
-                        <span class="hedge-ladder-pct pixel-text" data-tenor-pct="${t}" style="font-size:8px;text-align:right;color:${hasChange ? 'var(--gold)' : 'var(--text-primary)'};">${pctDisplay}%</span>
+                        <span class="hedge-ladder-existing pixel-text" data-tenor-existing="${t}" style="font-size:8px;text-align:right;color:var(--text-muted);">${existingDisplay}%</span>
+                        <span class="hedge-ladder-pct pixel-text" data-tenor-pct="${t}" style="font-size:9px;text-align:right;color:${hasChange ? 'var(--gold)' : 'var(--text-primary)'};font-weight:bold;">${pctDisplay}%</span>
                         <span class="hedge-ladder-notional pixel-text" data-tenor-notional="${t}" style="font-size:7px;text-align:right;color:var(--text-secondary);">${this.formatCompact(notional)}</span>
                     </div>
                 `;
@@ -168,11 +173,16 @@ export class HedgeLadder {
                 const existingPct = this.existingBuckets[tenor] || 0;
                 const hasChange = Math.abs(pct - existingPct) > 0.001;
 
-                // Update the % label
+                // Update the TOTAL % label (slider value = total coverage incl. trade)
                 const pctLabel = this.container.querySelector(`[data-tenor-pct="${tenor}"]`);
                 if (pctLabel) {
                     pctLabel.textContent = `${e.target.value}%`;
                     pctLabel.style.color = hasChange ? 'var(--gold)' : 'var(--text-primary)';
+                }
+                // Existing label stays at the baseline; ensure it's still visible
+                const existLabel = this.container.querySelector(`[data-tenor-existing="${tenor}"]`);
+                if (existLabel) {
+                    existLabel.textContent = `${Math.round(existingPct * 100)}%`;
                 }
 
                 // Update notional label

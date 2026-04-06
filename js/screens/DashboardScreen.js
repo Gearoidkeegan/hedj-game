@@ -691,10 +691,23 @@ export class DashboardScreen {
         this.hedgeLadder = new HedgeLadder(container, {
             exposure,
             maxTenor: 8,
-            completedQuarters: state.totalQuartersPlayed,
+            completedQuarters: 0,
             onChange: () => this.renderTradePreview()
         });
-        this.hedgeLadder.render();
+
+        // Compute existing coverage per tenor bucket from already-booked hedges
+        // for this exposure. Tenor index = quarters from now until maturity.
+        const existingByTenor = {};
+        const quarterly = exposure.quarterlyNotional || 0;
+        for (const h of state.hedgePortfolio || []) {
+            if (h.status !== 'active') continue;
+            if (h.underlying !== exposure.underlying) continue;
+            const tenor = Math.max(1, (h.maturityQuarter || 0) - state.totalQuartersPlayed);
+            if (tenor < 1 || tenor > 8) continue;
+            const ratio = quarterly > 0 ? h.notional / quarterly : 0;
+            existingByTenor[tenor] = (existingByTenor[tenor] || 0) + ratio;
+        }
+        this.hedgeLadder.setExistingCoverage(existingByTenor);
     }
 
     // -----------------------------------------------------------------------
