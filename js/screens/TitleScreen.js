@@ -507,10 +507,10 @@ export class TitleScreen {
         // Yellow dot over the J — replicating the logo's circle motif
         // J starts at li=3, the dot sits above the rightmost column of J
         const jStartX = startX + 3 * (letterW + gap) * px;
-        const dotX = jStartX + 3 * px + Math.floor(px / 2); // center of J's right column
-        const dotY = startY - 5; // above the J
+        const jDotX = jStartX + 3 * px + Math.floor(px / 2); // center of J's right column
+        const jDotY = startY - 5; // above the J
         ctx.beginPath();
-        ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+        ctx.arc(jDotX, jDotY, 4, 0, Math.PI * 2);
         ctx.fillStyle = '#fbbf24';
         ctx.fill();
 
