@@ -75,6 +75,15 @@ export class StressFace {
      */
     update() {
         this.lastStress = boardAI.getStressLevel();
+        // Track lifetime max stress on game state for end-of-game messaging
+        const state = gameState.get();
+        if (this.lastStress > (state.maxStressReached || 0)) {
+            gameState.update({ maxStressReached: this.lastStress });
+        }
+        // Burnout: at sustained 100% stress the player walks out
+        if (this.lastStress >= 100 && !state.burnedOut && !state.firedByBoard) {
+            gameState.update({ burnedOut: true });
+        }
         this.draw(this.lastStress);
     }
 

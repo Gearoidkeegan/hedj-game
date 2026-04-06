@@ -238,6 +238,13 @@ export class DashboardScreen {
             if (this.selectedExposure && this.hedgeLadder) {
                 this.renderTradePreview();
             }
+            // Burnout: stress hit 100%, end the quarter immediately
+            if (gameState.get().burnedOut) {
+                this.app.showToast('You have burned out! Walking off the trading floor...', 'danger');
+                clearInterval(this.priceRefreshTimer);
+                this.priceRefreshTimer = null;
+                setTimeout(() => this.endQuarter(), 1500);
+            }
         }, 500);
 
         this.app.showToast('Quarter started — markets are live!', 'info');

@@ -70,6 +70,7 @@ class GameStateManager {
             tradingCostsThisQuarter: 0,
             totalTradingCosts: 0,
             tradeDirectionErrors: 0,
+            maxStressReached: 0,
 
             // Career mode
             careerMode: false,
@@ -80,6 +81,7 @@ class GameStateManager {
 
             // Flags
             firedByBoard: false,
+            burnedOut: false,         // Stress hit 100% — player walked out
             promotedToCEO: false,
             perfectCompliance: true,
             peAcquired: false,        // Private equity acquisition flag

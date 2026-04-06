@@ -70,9 +70,9 @@ class ScoreEngineController {
 
         let finalTotal = Math.min(100, total + complianceBonus);
 
-        // If the player was fired by the board, the grade must reflect that.
+        // If the player was fired by the board or burned out, the grade must reflect that.
         // Cap the total at the F threshold so the grade is always "Looking for Work".
-        if (state.firedByBoard) {
+        if (state.firedByBoard || state.burnedOut) {
             finalTotal = Math.min(finalTotal, 45);
         }
 

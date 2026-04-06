@@ -27,13 +27,16 @@ export class LevelCompleteScreen {
 
         this.levelResult = { scores, finalScore, evaluation, level };
 
-        const passed = evaluation.passed && !state.firedByBoard;
+        const stressedOut = state.burnedOut || (state.maxStressReached || 0) >= 100;
+        const passed = evaluation.passed && !state.firedByBoard && !state.burnedOut;
         const gradeInfo = scoreEngine.getGrade(finalScore);
 
         // Pick a reason-appropriate fail message instead of always using
         // the level's "ran out of cash" line, which can contradict the actual state.
         let flavourText;
-        if (state.firedByBoard) {
+        if (state.burnedOut) {
+            flavourText = 'You walked out mid-quarter. The pressure was too much. Time for a long break.';
+        } else if (state.firedByBoard) {
             if (state.cashWentNegative || state.cashBalance < 0) {
                 flavourText = 'The company ran out of cash. Your LinkedIn now says "Open to Work".';
             } else if (state.boardSatisfaction <= GAME_CONFIG.FIRE_THRESHOLD) {
@@ -80,7 +83,7 @@ export class LevelCompleteScreen {
                 <!-- Result -->
                 <div style="text-align:center;margin-bottom:16px;">
                     <div class="pixel-text" style="font-size:14px;color:${passed ? 'var(--pnl-positive)' : 'var(--pnl-negative)'};">
-                        ${state.firedByBoard ? 'FIRED' : passed ? (evaluation.isLastLevel ? 'CAREER COMPLETE' : 'LEVEL PASSED') : 'LEVEL FAILED'}
+                        ${state.burnedOut ? 'BURNED OUT' : state.firedByBoard ? 'FIRED' : passed ? (evaluation.isLastLevel ? 'CAREER COMPLETE' : 'LEVEL PASSED') : 'LEVEL FAILED'}
                     </div>
                     <div class="gameover-grade" style="font-size:36px;">${gradeInfo.grade}</div>
                     <div class="pixel-text" style="font-size:9px;color:var(--text-secondary);margin-bottom:8px;">${gradeInfo.title}</div>
@@ -122,6 +125,16 @@ export class LevelCompleteScreen {
                         "${flavourText}"
                     </div>
                 </div>
+
+                ${(state.firedByBoard || stressedOut) ? `
+                    <div class="panel" style="max-width:500px;width:100%;margin-bottom:16px;border-color:var(--gold);text-align:center;">
+                        <div class="readable-text" style="font-size:16px;color:var(--text-primary);font-style:italic;margin-bottom:8px;">
+                            Lucky this was a simulation. If you need real help with your treasury risk,
+                            talk to <a href="https://www.hedj.eu" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:underline;">Hedj</a> today.
+                        </div>
+                        <a href="https://www.hedj.eu" target="_blank" rel="noopener" class="btn btn-gold" style="display:inline-block;font-size:13px;padding:6px 14px;text-decoration:none;">VISIT HEDJ.EU</a>
+                    </div>
+                ` : ''}
 
                 <!-- Stats -->
                 <div class="panel" style="max-width:500px;width:100%;margin-bottom:16px;">

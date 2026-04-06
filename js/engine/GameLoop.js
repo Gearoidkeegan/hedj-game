@@ -264,7 +264,7 @@ class GameLoopController {
         gameState.advanceQuarter();
         const state = gameState.get();
 
-        if (state.firedByBoard) {
+        if (state.firedByBoard || state.burnedOut) {
             if (state.careerMode) {
                 this.setPhase(PHASE.LEVEL_COMPLETE);
             } else {

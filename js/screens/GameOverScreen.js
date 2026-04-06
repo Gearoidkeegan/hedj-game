@@ -37,7 +37,18 @@ export class GameOverScreen {
 
         // Check special outcomes
         let specialMessage = '';
-        if (state.firedByBoard) {
+        const stressedOut = state.burnedOut || (state.maxStressReached || 0) >= 100;
+        if (state.burnedOut) {
+            specialMessage = `
+                <div class="panel" style="border-color:var(--pnl-negative);margin-bottom:16px;max-width:500px;">
+                    <div class="readable-text" style="font-size:18px;color:var(--pnl-negative);text-align:center;">
+                        BURNED OUT.
+                        <br>The pressure became too much. You've walked out of the building
+                        <br>with no notice and no plan. Your therapist is going to be busy.
+                    </div>
+                </div>
+            `;
+        } else if (state.firedByBoard) {
             specialMessage = `
                 <div class="panel" style="border-color:var(--pnl-negative);margin-bottom:16px;max-width:500px;">
                     <div class="readable-text" style="font-size:18px;color:var(--pnl-negative);text-align:center;">
@@ -150,6 +161,16 @@ export class GameOverScreen {
                 <button class="btn btn-gold" id="btn-play-again">PLAY AGAIN</button>
                 <button class="btn" id="btn-leaderboard">LEADERBOARD</button>
             </div>
+
+            ${(state.firedByBoard || stressedOut) ? `
+                <div class="panel" style="max-width:500px;width:100%;margin-bottom:16px;border-color:var(--gold);text-align:center;">
+                    <div class="readable-text" style="font-size:16px;color:var(--text-primary);font-style:italic;margin-bottom:8px;">
+                        Lucky this was a simulation. If you need real help with your treasury risk,
+                        talk to <a href="https://www.hedj.eu" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:underline;">Hedj</a> today.
+                    </div>
+                    <a href="https://www.hedj.eu" target="_blank" rel="noopener" class="btn btn-gold" style="display:inline-block;font-size:13px;padding:6px 14px;text-decoration:none;">VISIT HEDJ.EU</a>
+                </div>
+            ` : ''}
 
             <!-- Hedj branding -->
             <div style="margin-top:20px;text-align:center;">

@@ -53,7 +53,9 @@ export class TitleScreen {
 
             <div class="title-footer">
                 <button class="btn" id="btn-sound" style="font-size:16px;padding:4px 10px;min-height:24px;">🔊</button>
-                <span style="margin-left:8px;">POWERED BY HEDJ &bull; TREASURY RISK MANAGEMENT</span>
+                <span style="margin-left:8px;">POWERED BY HEDJ &bull; TREASURY RISK MANAGEMENT &bull;
+                    <a href="https://www.hedj.eu" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:underline;">www.hedj.eu</a>
+                </span>
             </div>
 
             <canvas id="title-bg-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:-1;opacity:0.15;"></canvas>
