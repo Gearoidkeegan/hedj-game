@@ -43,7 +43,12 @@ export const GAME_CONFIG = {
     // Data window
     MIN_DATA_YEAR: 1994,
     MAX_DATA_YEAR: 2024,
-    GAME_WINDOW_YEARS: 4         // Max years of data needed per game
+    GAME_WINDOW_YEARS: 4,        // Max years of data needed per game
+
+    // Bank request gating (board approval mechanic)
+    MIN_SATISFACTION_FOR_BANK_REQUEST: 60,    // Min board satisfaction to onboard a new bank
+    MIN_SATISFACTION_FOR_LIMIT_INCREASE: 50,  // Min board satisfaction to raise credit lines
+    BANK_REQUEST_COOLDOWN_QUARTERS: 4         // Quarters between any bank/limit request
 };
 
 export const GRADES = [

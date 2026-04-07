@@ -107,19 +107,13 @@
             "type": "instant",
             "category": "universal",
             "title": "Revenue Warning",
-            "description": "Sales have come in 20% below forecast this quarter. Your hedge book may now be over-hedged relative to actual exposure. {hedge_mtm}",
+            "description": "Sales have come in 20% below forecast this quarter. Your revenue exposures have been reduced accordingly. Review your hedge book — you may now be over-hedged and should consider unwinding excess positions yourself.",
             "choices": [
                 {
-                    "id": "unwind_some",
-                    "label": "Unwind excess hedges",
-                    "description": "Reduce hedge positions to match lower exposure. May incur breakage costs.",
-                    "effect": { "unwind_pct": 0.2, "satisfaction_delta": 0 }
-                },
-                {
-                    "id": "hold_hedges",
-                    "label": "Keep hedges in place",
-                    "description": "Hope sales recover next quarter. Risk being significantly over-hedged.",
-                    "effect": { "overhedge_flag": true, "satisfaction_delta": -2 }
+                    "id": "acknowledge",
+                    "label": "Continue",
+                    "description": "Acknowledge the revenue shortfall and review your book.",
+                    "effect": { "revenue_shrink_pct": 0.2, "satisfaction_delta": -1 }
                 }
             ],
             "weight": 1.0,
@@ -131,19 +125,13 @@
             "type": "instant",
             "category": "universal",
             "title": "Cost Overrun Alert",
-            "description": "Operating costs have exceeded budget by 15%. Your commodity and FX exposures are now larger than hedged.",
+            "description": "Operating costs have exceeded budget by 15%. Your cost-side commodity and FX exposures have grown beyond your existing hedges. You'll need to add coverage yourself to avoid an under-hedged book.",
             "choices": [
                 {
-                    "id": "increase_hedges",
-                    "label": "Increase hedge coverage",
-                    "description": "Add more hedges to cover the increased exposure.",
-                    "effect": { "exposure_increase": 0.15, "satisfaction_delta": -1 }
-                },
-                {
-                    "id": "absorb",
-                    "label": "Absorb the overrun",
-                    "description": "Accept the increased unhedged exposure and hope rates move in your favour.",
-                    "effect": { "satisfaction_delta": -3 }
+                    "id": "acknowledge",
+                    "label": "Continue",
+                    "description": "Acknowledge the cost overrun and rebalance your hedges.",
+                    "effect": { "cost_increase_pct": 0.15, "satisfaction_delta": -1 }
                 }
             ],
             "weight": 1.0,
@@ -203,19 +191,13 @@
             "type": "instant",
             "category": "industry_specific",
             "title": "FDA Rejection — Product Not Approved",
-            "description": "Your blockbuster drug has been rejected by the regulator. Projected USD revenue has evaporated. If you hedged this revenue with forwards, you now have hedges with no underlying exposure.",
+            "description": "Your blockbuster drug has been rejected by the regulator. Projected USD revenue has evaporated — your revenue exposures have been wiped out. Any forward hedges you booked against this revenue are now naked positions; you'll need to unwind them yourself (and pay the breakage). Options would have simply expired.",
             "choices": [
                 {
-                    "id": "unwind_all",
-                    "label": "Unwind revenue hedges",
-                    "description": "Close all hedges tied to the rejected product. Breakage costs apply for forwards.",
-                    "effect": { "unwind_revenue_hedges": true, "satisfaction_delta": -4 }
-                },
-                {
-                    "id": "hold_hope",
-                    "label": "Appeal and keep hedges",
-                    "description": "File an appeal. The hedges stay but the exposure is gone for now.",
-                    "effect": { "satisfaction_delta": -6 }
+                    "id": "acknowledge",
+                    "label": "Continue",
+                    "description": "Acknowledge the rejection and review your hedge book.",
+                    "effect": { "revenue_shrink_pct": 1.0, "satisfaction_delta": -3 }
                 }
             ],
             "board_note": "Options used for revenue hedging are praised here — no breakage. Forwards are criticised.",
@@ -228,19 +210,13 @@
             "type": "instant",
             "category": "industry_specific",
             "title": "Major Project Delayed 6 Months",
-            "description": "Your flagship project has been delayed by 6 months. Cash flows have shifted — your hedges now mature before the underlying exposure does.",
+            "description": "Your flagship project has been delayed by 6 months. Near-term materials and equipment exposures have shrunk by half — the work simply isn't happening yet. Your existing hedges still settle on the original schedule, leaving you over-hedged in the short term. Roll or unwind to match the new timeline.",
             "choices": [
                 {
-                    "id": "roll_hedges",
-                    "label": "Roll hedges forward",
-                    "description": "Extend hedge maturities to match new timeline. Incurs roll costs.",
-                    "effect": { "roll_cost_pct": 0.02, "satisfaction_delta": -2 }
-                },
-                {
-                    "id": "let_mature",
-                    "label": "Let hedges mature",
-                    "description": "Hedges settle on time but leave future exposure unhedged.",
-                    "effect": { "satisfaction_delta": -4 }
+                    "id": "acknowledge",
+                    "label": "Continue",
+                    "description": "Acknowledge the delay and rebalance your hedges.",
+                    "effect": { "cost_shrink_pct": 0.5, "satisfaction_delta": -2 }
                 }
             ],
             "weight": 2.0,
@@ -252,19 +228,13 @@
             "type": "instant",
             "category": "industry_specific",
             "title": "Fuel Prices Surge 25%",
-            "description": "Geopolitical tensions have caused a 25% spike in fuel prices. Your fuel costs are soaring.",
+            "description": "Geopolitical tensions have caused a 25% spike in fuel prices. Brent has just jumped — your unhedged fuel exposure is now marked at a much higher level. Decide whether to lock in here or ride it out.",
             "choices": [
                 {
-                    "id": "lock_in",
-                    "label": "Lock in current prices",
-                    "description": "Hedge immediately at elevated levels to prevent further losses.",
+                    "id": "acknowledge",
+                    "label": "Continue",
+                    "description": "Acknowledge the fuel spike and review your hedge book.",
                     "effect": { "rate_shock": { "BRENT": 0.25 }, "satisfaction_delta": -2 }
-                },
-                {
-                    "id": "wait_dip",
-                    "label": "Wait for prices to drop",
-                    "description": "Gamble that prices will retreat. Risky but could save money.",
-                    "effect": { "satisfaction_delta": -3 }
                 }
             ],
             "weight": 1.5,
@@ -319,19 +289,13 @@
             "type": "instant",
             "category": "industry_specific",
             "title": "Supply Chain Disruption",
-            "description": "A major supply route has been disrupted. Commodity costs are spiking and delivery timelines are uncertain.",
+            "description": "A major supply route has been disrupted. Your commodity prices have spiked 15%. Existing hedges have rallied in your favour, but any new coverage will be more expensive — review your book and decide whether to add more.",
             "choices": [
                 {
-                    "id": "stockpile",
-                    "label": "Stockpile at current prices",
-                    "description": "Buy forward at elevated prices to secure supply.",
+                    "id": "acknowledge",
+                    "label": "Continue",
+                    "description": "Acknowledge the disruption and review your hedges.",
                     "effect": { "commodity_spike": 0.15, "satisfaction_delta": -1 }
-                },
-                {
-                    "id": "diversify_supply",
-                    "label": "Find alternative suppliers",
-                    "description": "Source from elsewhere. Takes time and costs more.",
-                    "effect": { "satisfaction_delta": -2 }
                 }
             ],
             "weight": 1.3,

@@ -1,6 +1,46 @@
 // Isometric Scene Renderer — Hedj industry map style
 // Clean vector-like illustrations with light blue ground, white roads,
-// dark outlines, muted blue/grey palette with orange/red accents
+// dark outlines, muted blue/grey palette with safety-orange accents.
+//
+// Two render paths:
+//   1. Pre-rendered PNG backdrop from assets/images/scenes/<scene>.png
+//      (matches the website's industry-map.png style). PNGs are loaded once
+//      into a module-level cache. Animated overlays (smoke, blinkers,
+//      vehicles) are drawn on top of the PNG each frame.
+//   2. Procedural canvas drawing fallback (drawAirport / drawFactory / …)
+//      kicks in when the PNG is missing or hasn't loaded yet.
+
+const SCENE_TYPES = ['airport', 'roastery', 'factory', 'lab', 'building_site', 'energy_grid', 'shopping_centre'];
+const SCENE_IMAGE_PATH = 'assets/images/scenes/';
+
+// Module-level cache shared across IsometricScene instances.
+// Each entry: HTMLImageElement (image.complete + naturalWidth>0 once loaded).
+const sceneImageCache = {};
+let scenePreloadStarted = false;
+
+function preloadAllScenes() {
+    if (scenePreloadStarted) return;
+    scenePreloadStarted = true;
+    for (const type of SCENE_TYPES) {
+        const img = new Image();
+        img.src = SCENE_IMAGE_PATH + type + '.png';
+        // onerror leaves naturalWidth = 0 → fallback path is used.
+        sceneImageCache[type] = img;
+    }
+}
+
+// Per-scene overlay configuration. Coordinates are in canvas pixels for the
+// default 620×200 canvas (overlays are scaled if the canvas differs).
+// type: 'smoke' | 'blinker' | 'vehicle'
+const SCENE_OVERLAYS = {
+    factory:        [{ type: 'smoke',   x: 220, y: 60 }, { type: 'smoke',   x: 260, y: 60 }],
+    energy_grid:    [{ type: 'smoke',   x: 180, y: 50 }, { type: 'blinker', x: 420, y: 80, color: '#f08040' }],
+    roastery:       [{ type: 'smoke',   x: 300, y: 55 }],
+    building_site:  [{ type: 'blinker', x: 280, y: 50, color: '#f08040' }, { type: 'blinker', x: 360, y: 70, color: '#f08040' }],
+    airport:        [{ type: 'vehicle', y: 130, speed: 0.4, color: '#f08040' }],
+    lab:            [{ type: 'blinker', x: 320, y: 90, color: '#f08040' }],
+    shopping_centre:[{ type: 'vehicle', y: 150, speed: 0.25, color: '#f08040' }],
+};
 
 export class IsometricScene {
     constructor(canvas) {
@@ -20,25 +60,26 @@ export class IsometricScene {
         this.originX = this.width / 2 - 20;
         this.originY = 40;
 
-        // Hedj palette
+        // Hedj palette — pastel blues/greys/white with safety-orange accents,
+        // tightened to match the new PNG backdrops.
         this.colors = {
-            sky: '#eef3f8',
-            ground: '#b8cfe0',
-            groundDark: '#a0b8cc',
+            sky: '#f0f5fa',
+            ground: '#dde7f0',
+            groundDark: '#c4d2e0',
             road: '#ffffff',
             roadDash: '#8898a8',
             outline: '#2a3a5a',
             outlineLight: '#5a7090',
-            building: '#d8e0e8',
-            buildingMid: '#b0bcc8',
+            building: '#dce4ec',
+            buildingMid: '#b4c0cc',
             buildingDark: '#8898a8',
-            roof: '#e0e8f0',
+            roof: '#e4ecf2',
             window: '#90a8c0',
             windowLit: '#f0d888',
-            accent: '#d85030',
-            accentDark: '#b04020',
-            crane: '#e87040',
-            craneDark: '#c05830',
+            accent: '#f08040',
+            accentDark: '#c46028',
+            crane: '#f08040',
+            craneDark: '#c46028',
             metal: '#788898',
             metalDark: '#607080',
             grass: '#88b870',
@@ -52,6 +93,9 @@ export class IsometricScene {
             dirt: '#c0a880',
             smoke: '#c8d0d8',
         };
+
+        // Kick off PNG preload (idempotent).
+        preloadAllScenes();
     }
 
     start(sceneType, yearOffset = 0, quarter = 1) {
@@ -80,6 +124,15 @@ export class IsometricScene {
         ctx.imageSmoothingEnabled = true;
         ctx.clearRect(0, 0, this.width, this.height);
 
+        // Try PNG backdrop first.
+        const img = sceneImageCache[this.scene];
+        if (img && img.complete && img.naturalWidth > 0) {
+            ctx.drawImage(img, 0, 0, this.width, this.height);
+            this.drawOverlays(ctx);
+            return;
+        }
+
+        // Procedural fallback (also runs while PNG is still loading).
         switch (this.scene) {
             case 'airport': this.drawAirport(ctx); break;
             case 'roastery': this.drawRoastery(ctx); break;
@@ -90,6 +143,74 @@ export class IsometricScene {
             case 'shopping_centre': this.drawShoppingCentre(ctx); break;
             default: this.drawAirport(ctx); break;
         }
+    }
+
+    // =========== ANIMATED OVERLAYS (drawn on top of PNG backdrop) ===========
+
+    drawOverlays(ctx) {
+        const overlays = SCENE_OVERLAYS[this.scene];
+        if (!overlays) return;
+
+        // Scale overlay coords to actual canvas size (designed at 620x200).
+        const sx = this.width / 620;
+        const sy = this.height / 200;
+
+        for (const o of overlays) {
+            if (o.type === 'smoke') {
+                this.drawSmoke(ctx, o.x * sx, o.y * sy);
+            } else if (o.type === 'blinker') {
+                this.drawBlinker(ctx, o.x * sx, o.y * sy, o.color || '#f08040');
+            } else if (o.type === 'vehicle') {
+                this.drawVehicle(ctx, o.y * sy, o.speed || 0.3, o.color || '#f08040');
+            }
+        }
+    }
+
+    drawSmoke(ctx, x, y) {
+        // Three rising puffs offset by frame phase.
+        ctx.save();
+        for (let i = 0; i < 3; i++) {
+            const t = ((this.frame + i * 30) % 90) / 90; // 0..1
+            const py = y - t * 28;
+            const px = x + Math.sin((this.frame * 0.04) + i) * 3;
+            const r = 3 + t * 4;
+            ctx.fillStyle = `rgba(200, 208, 216, ${0.7 * (1 - t)})`;
+            ctx.beginPath();
+            ctx.arc(px, py, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    drawBlinker(ctx, x, y, color) {
+        // Pulsing safety dot.
+        const t = (Math.sin(this.frame * 0.15) + 1) / 2; // 0..1
+        const alpha = 0.4 + t * 0.6;
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        // Glow halo
+        ctx.globalAlpha = alpha * 0.3;
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    drawVehicle(ctx, y, speed, color) {
+        // Small block sliding left→right across the canvas.
+        const cycle = this.width + 40;
+        const x = ((this.frame * speed) % cycle) - 20;
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.strokeStyle = this.colors.outline;
+        ctx.lineWidth = 1;
+        ctx.fillRect(x, y, 12, 6);
+        ctx.strokeRect(x + 0.5, y + 0.5, 12, 6);
+        ctx.restore();
     }
 
     // =========== SHARED DRAWING PRIMITIVES ===========

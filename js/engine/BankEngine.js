@@ -1,5 +1,7 @@
 // BankEngine — manages bank counterparties, credit limits, and diversification scoring
 
+import { GAME_CONFIG } from '../utils/constants.js';
+
 const BANK_POOL = [
     { id: 'goldmansacks', name: 'Goldman Sacks',     shortName: 'GSX',  tier: 1 },
     { id: 'jp_moaning',   name: 'JP Moaning',        shortName: 'JPM',  tier: 1 },
@@ -20,6 +22,7 @@ class BankEngineController {
         this.banks = [];           // Active bank relationships
         this.tradesByBank = {};    // { bankId: [hedgeIds] }
         this.limitRequests = 0;    // Times player requested more banks/limits
+        this.lastRequestQuarter = -Infinity; // Most recent successful request quarter
     }
 
     /**
@@ -32,6 +35,7 @@ class BankEngineController {
         this.banks = [];
         this.tradesByBank = {};
         this.limitRequests = 0;
+        this.lastRequestQuarter = -Infinity;
 
         // Pick random banks from pool
         const shuffled = rng.shuffle([...BANK_POOL]);
@@ -97,13 +101,70 @@ class BankEngineController {
     }
 
     /**
+     * Check whether the player can currently make a bank request.
+     * Returns { allowed, reason, detail } so UI can pre-disable buttons.
+     * @param {string} requestType - 'new_bank' or 'increase_limit'
+     * @param {object} state - current gameState snapshot
+     */
+    canRequest(requestType, state) {
+        const minSat = requestType === 'new_bank'
+            ? GAME_CONFIG.MIN_SATISFACTION_FOR_BANK_REQUEST
+            : GAME_CONFIG.MIN_SATISFACTION_FOR_LIMIT_INCREASE;
+
+        if ((state.boardSatisfaction || 0) < minSat) {
+            return {
+                allowed: false,
+                reason: 'satisfaction_too_low',
+                detail: `Board satisfaction too low — need ≥${minSat}`
+            };
+        }
+
+        const cooldown = GAME_CONFIG.BANK_REQUEST_COOLDOWN_QUARTERS;
+        const quartersSince = (state.totalQuartersPlayed || 0) - this.lastRequestQuarter;
+        if (quartersSince < cooldown) {
+            const remaining = cooldown - quartersSince;
+            return {
+                allowed: false,
+                reason: 'cooldown',
+                detail: `Cooldown: ${remaining} quarter${remaining === 1 ? '' : 's'} remaining`
+            };
+        }
+
+        if (requestType === 'new_bank') {
+            const currentIds = new Set(this.banks.map(b => b.id));
+            const available = BANK_POOL.filter(b => !currentIds.has(b.id));
+            if (available.length === 0) {
+                return {
+                    allowed: false,
+                    reason: 'no_banks_available',
+                    detail: 'All banks already onboarded'
+                };
+            }
+        }
+
+        return { allowed: true, reason: 'ok', detail: '' };
+    }
+
+    /**
      * Request additional bank or increased limits from the board.
      * Returns the result and board satisfaction cost.
      * @param {string} requestType - 'new_bank' or 'increase_limit'
      * @param {object} rng
-     * @returns {{ success: boolean, bank?: object, satisfactionCost: number, message: string }}
+     * @param {object} state - current gameState snapshot (for gating + cooldown stamp)
+     * @returns {{ success: boolean, bank?: object, satisfactionCost: number, message: string, reason?: string }}
      */
-    requestFromBoard(requestType, rng) {
+    requestFromBoard(requestType, rng, state) {
+        // Gate first — do not mutate anything if not allowed.
+        const gate = this.canRequest(requestType, state);
+        if (!gate.allowed) {
+            return {
+                success: false,
+                satisfactionCost: 0,
+                message: gate.detail,
+                reason: gate.reason
+            };
+        }
+
         this.limitRequests++;
 
         // Each request costs board goodwill (diminishing patience)
@@ -112,17 +173,8 @@ class BankEngineController {
         const satisfactionCost = baseCost + escalation;
 
         if (requestType === 'new_bank') {
-            // Find a bank not yet in the relationship
             const currentIds = new Set(this.banks.map(b => b.id));
             const available = BANK_POOL.filter(b => !currentIds.has(b.id));
-
-            if (available.length === 0) {
-                return {
-                    success: false,
-                    satisfactionCost: 0,
-                    message: "No additional banks available in the market."
-                };
-            }
 
             const newBank = rng.pick(available);
             const avgLimit = this.banks.reduce((sum, b) => sum + b.creditLimit, 0) / this.banks.length;
@@ -134,12 +186,14 @@ class BankEngineController {
                 active: true
             });
             this.tradesByBank[newBank.id] = [];
+            this.lastRequestQuarter = state.totalQuartersPlayed || 0;
 
             return {
                 success: true,
                 bank: newBank,
                 satisfactionCost,
-                message: `${newBank.name} has been onboarded as a new counterparty.`
+                message: `${newBank.name} has been onboarded as a new counterparty.`,
+                reason: 'ok'
             };
         }
 
@@ -148,15 +202,17 @@ class BankEngineController {
             for (const bank of this.banks) {
                 bank.creditLimit = Math.round(bank.creditLimit * 1.25);
             }
+            this.lastRequestQuarter = state.totalQuartersPlayed || 0;
 
             return {
                 success: true,
                 satisfactionCost,
-                message: "Credit limits increased by 25% across all counterparties."
+                message: "Credit limits increased by 25% across all counterparties.",
+                reason: 'ok'
             };
         }
 
-        return { success: false, satisfactionCost: 0, message: "Unknown request type." };
+        return { success: false, satisfactionCost: 0, message: "Unknown request type.", reason: 'unknown' };
     }
 
     /**

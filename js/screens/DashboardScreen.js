@@ -1116,27 +1116,41 @@ export class DashboardScreen {
             `;
         }
 
-        // Request-from-board actions
+        // Request-from-board actions (gated by board approval)
+        const state = gameState.get();
         const nextCost = 3 + Math.min(5, bankEngine.limitRequests);
+        const bankGate = bankEngine.canRequest('new_bank', state);
+        const limitGate = bankEngine.canRequest('increase_limit', state);
+        const bankAttrs = bankGate.allowed
+            ? `title="Ask board to onboard a new counterparty (~${nextCost} satisfaction)"`
+            : `disabled title="${bankGate.detail}" style="flex:1;font-size:10px;padding:4px 6px;min-height:28px;opacity:0.5;cursor:not-allowed;"`;
+        const limitAttrs = limitGate.allowed
+            ? `title="Ask board to raise credit limits 25% (~${nextCost} satisfaction)"`
+            : `disabled title="${limitGate.detail}" style="flex:1;font-size:10px;padding:4px 6px;min-height:28px;opacity:0.5;cursor:not-allowed;"`;
         html += `
             <div style="display:flex;gap:6px;padding:6px 8px;border-top:1px solid var(--border-inner);margin-top:4px;">
-                <button class="btn" id="btn-request-bank" style="flex:1;font-size:10px;padding:4px 6px;min-height:28px;" title="Ask board to onboard a new counterparty">+ BANK</button>
-                <button class="btn" id="btn-request-limit" style="flex:1;font-size:10px;padding:4px 6px;min-height:28px;" title="Ask board to raise credit limits 25%">+ LIMIT</button>
+                <button class="btn" id="btn-request-bank" ${bankGate.allowed ? 'style="flex:1;font-size:10px;padding:4px 6px;min-height:28px;"' : ''} ${bankAttrs}>+ BANK</button>
+                <button class="btn" id="btn-request-limit" ${limitGate.allowed ? 'style="flex:1;font-size:10px;padding:4px 6px;min-height:28px;"' : ''} ${limitAttrs}>+ LIMIT</button>
             </div>
-            <div class="pixel-text" style="font-size:7px;color:var(--text-muted);text-align:center;padding:0 8px 4px;">Costs ~${nextCost} board satisfaction</div>
         `;
+        if (!bankGate.allowed || !limitGate.allowed) {
+            const reasonText = !bankGate.allowed ? bankGate.detail : limitGate.detail;
+            html += `<div class="pixel-text" style="font-size:7px;color:var(--pnl-negative);text-align:center;padding:0 8px 2px;">${reasonText}</div>`;
+        }
+        html += `<div class="pixel-text" style="font-size:7px;color:var(--text-muted);text-align:center;padding:0 8px 4px;">Costs ~${nextCost} board satisfaction</div>`;
 
         container.innerHTML = html;
 
         const btnBank = container.querySelector('#btn-request-bank');
         const btnLimit = container.querySelector('#btn-request-limit');
-        if (btnBank) btnBank.addEventListener('click', () => this.handleBankRequest('new_bank'));
-        if (btnLimit) btnLimit.addEventListener('click', () => this.handleBankRequest('increase_limit'));
+        if (btnBank && bankGate.allowed) btnBank.addEventListener('click', () => this.handleBankRequest('new_bank'));
+        if (btnLimit && limitGate.allowed) btnLimit.addEventListener('click', () => this.handleBankRequest('increase_limit'));
     }
 
     handleBankRequest(type) {
         const rng = gameState.getRng();
-        const result = bankEngine.requestFromBoard(type, rng);
+        const state = gameState.get();
+        const result = bankEngine.requestFromBoard(type, rng, state);
         if (result.success) {
             gameState.adjustSatisfaction(-result.satisfactionCost);
             this.app.showToast(result.message, 'success');

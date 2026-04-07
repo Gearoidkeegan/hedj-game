@@ -71,8 +71,12 @@ export class EventScreen {
                 <div style="max-width:560px;width:100%;">
                     ${eraWrapped}
 
-                    <div class="event-choices" id="event-choices" style="display:none;margin-top:12px;">
-                        ${event.choices.map(choice => `
+                    <div class="event-choices ${this.isAcknowledgeEvent(event) ? 'event-choices-ack' : ''}" id="event-choices" style="display:none;margin-top:12px;">
+                        ${this.isAcknowledgeEvent(event) ? `
+                            <button class="btn event-choice-btn event-ack-btn" data-choice="acknowledge" style="min-width:200px;font-size:12px;padding:10px 20px;">
+                                <div class="choice-label">CONTINUE</div>
+                            </button>
+                        ` : event.choices.map(choice => `
                             <button class="btn event-choice-btn" data-choice="${choice.id}">
                                 <div class="choice-label">${choice.label}</div>
                                 <div class="choice-desc">${choice.description}</div>
@@ -160,6 +164,13 @@ export class EventScreen {
                 if (onComplete) onComplete();
             }
         }, 20);
+    }
+
+    isAcknowledgeEvent(event) {
+        return event && event.type !== 'part2_resolution'
+            && Array.isArray(event.choices)
+            && event.choices.length === 1
+            && event.choices[0].id === 'acknowledge';
     }
 
     getCategoryIcon(category) {

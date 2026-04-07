@@ -343,12 +343,61 @@ class EventEngineController {
             gameState.update({ overhedged: true });
         }
 
-        // Exposure increase
+        // Exposure increase (all exposures)
         if (effects.exposure_increase) {
             const exposures = state.exposures.map(exp => ({
                 ...exp,
                 quarterlyNotional: exp.quarterlyNotional * (1 + effects.exposure_increase)
             }));
+            gameState.update({ exposures });
+        }
+
+        // Revenue-side exposures shrink (sales/receive directions only).
+        // Used by events like revenue_shortfall and pharma_rejection where
+        // the underlying *income* drops but cost-side exposures are unaffected.
+        // Player must rebalance their hedge book themselves.
+        if (effects.revenue_shrink_pct) {
+            const exposures = gameState.get().exposures.map(exp => {
+                if (exp.direction === 'sell' || exp.direction === 'receive') {
+                    return {
+                        ...exp,
+                        quarterlyNotional: exp.quarterlyNotional * (1 - effects.revenue_shrink_pct)
+                    };
+                }
+                return exp;
+            });
+            gameState.update({ exposures });
+        }
+
+        // Cost-side exposures increase (buy/pay directions only).
+        // Used by cost_overrun where operating costs balloon but revenue is unaffected.
+        if (effects.cost_increase_pct) {
+            const exposures = gameState.get().exposures.map(exp => {
+                if (exp.direction === 'buy' || exp.direction === 'pay') {
+                    return {
+                        ...exp,
+                        quarterlyNotional: exp.quarterlyNotional * (1 + effects.cost_increase_pct)
+                    };
+                }
+                return exp;
+            });
+            gameState.update({ exposures });
+        }
+
+        // Cost-side exposures shrink (buy/pay directions only).
+        // Used by construction_delay — project pushed out, near-term materials
+        // and equipment exposures drop, but the player's existing hedges are
+        // now over-sized and must be rolled or unwound.
+        if (effects.cost_shrink_pct) {
+            const exposures = gameState.get().exposures.map(exp => {
+                if (exp.direction === 'buy' || exp.direction === 'pay') {
+                    return {
+                        ...exp,
+                        quarterlyNotional: exp.quarterlyNotional * (1 - effects.cost_shrink_pct)
+                    };
+                }
+                return exp;
+            });
             gameState.update({ exposures });
         }
 
