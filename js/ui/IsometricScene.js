@@ -31,15 +31,58 @@ function preloadAllScenes() {
 
 // Per-scene overlay configuration. Coordinates are in canvas pixels for the
 // default 620×200 canvas (overlays are scaled if the canvas differs).
-// type: 'smoke' | 'blinker' | 'vehicle'
+//
+// Supported overlay types:
+//   smoke    — rising puffs from { x, y }, optional scale
+//   blinker  — pulsing dot at { x, y, color }
+//   vehicle  — small block sliding L→R (or R→L if speed<0) at { y, speed, color }
+//   truck    — bigger cab+trailer sliding along y
+//   airplane — isometric airplane sliding along runway at y
+//   windmill — three rotating blades at { x, y, radius, phase }
+//   craneJib — slowly rotating crane jib at { x, y, length, phase }
+//   shopper  — tiny dot wandering around { x, y, range, speed }
 const SCENE_OVERLAYS = {
-    factory:        [{ type: 'smoke',   x: 220, y: 60 }, { type: 'smoke',   x: 260, y: 60 }],
-    energy_grid:    [{ type: 'smoke',   x: 180, y: 50 }, { type: 'blinker', x: 420, y: 80, color: '#f08040' }],
-    roastery:       [{ type: 'smoke',   x: 300, y: 55 }],
-    building_site:  [{ type: 'blinker', x: 280, y: 50, color: '#f08040' }, { type: 'blinker', x: 360, y: 70, color: '#f08040' }],
-    airport:        [{ type: 'vehicle', y: 130, speed: 0.4, color: '#f08040' }],
-    lab:            [{ type: 'blinker', x: 320, y: 90, color: '#f08040' }],
-    shopping_centre:[{ type: 'vehicle', y: 150, speed: 0.25, color: '#f08040' }],
+    factory: [
+        { type: 'smoke', x: 240, y: 28, scale: 1.3 },
+        { type: 'smoke', x: 282, y: 22, scale: 1.1 },
+        { type: 'truck', y: 148, speed: 0.45, color: '#f0f0f0' },
+    ],
+    energy_grid: [
+        { type: 'smoke', x: 70,  y: 32, scale: 1.6 },
+        { type: 'smoke', x: 118, y: 40, scale: 1.4 },
+        { type: 'windmill', x: 378, y: 38, radius: 11, phase: 0.0 },
+        { type: 'windmill', x: 442, y: 42, radius: 11, phase: 0.7 },
+        { type: 'windmill', x: 506, y: 30, radius: 11, phase: 1.4 },
+        { type: 'windmill', x: 558, y: 36, radius: 9,  phase: 2.1 },
+        { type: 'blinker',  x: 595, y: 24, color: '#f04040' },
+    ],
+    roastery: [
+        { type: 'smoke', x: 328, y: 30, scale: 1.3 },
+        { type: 'truck', y: 138, speed: 0.35, color: '#a05030' },
+    ],
+    building_site: [
+        { type: 'craneJib', x: 130, y: 38, length: 60, phase: 0.0 },
+        { type: 'craneJib', x: 470, y: 44, length: 60, phase: 1.5 },
+        { type: 'blinker',  x: 130, y: 38, color: '#f08040' },
+        { type: 'blinker',  x: 470, y: 44, color: '#f08040' },
+    ],
+    airport: [
+        { type: 'airplane', y: 110, speed: 1.1, color: '#ffffff' },
+        { type: 'truck',    y: 158, speed: 0.5, color: '#f0c040' },
+        { type: 'blinker',  x: 80,  y: 28, color: '#f04040' },
+    ],
+    lab: [
+        { type: 'truck',   y: 132, speed: 0.4,  color: '#ffffff' },
+        { type: 'truck',   y: 150, speed: -0.3, color: '#ffffff' },
+        { type: 'blinker', x: 360, y: 52, color: '#5cb85c' },
+    ],
+    shopping_centre: [
+        { type: 'truck',   y: 152, speed: 0.4,  color: '#a86840' },
+        { type: 'truck',   y: 168, speed: -0.25, color: '#ffffff' },
+        { type: 'shopper', x: 360, y: 130, range: 30, speed: 0.04, phase: 0.0 },
+        { type: 'shopper', x: 410, y: 142, range: 25, speed: 0.05, phase: 1.0 },
+        { type: 'shopper', x: 460, y: 134, range: 28, speed: 0.035, phase: 2.0 },
+    ],
 };
 
 export class IsometricScene {
@@ -154,26 +197,47 @@ export class IsometricScene {
         // Scale overlay coords to actual canvas size (designed at 620x200).
         const sx = this.width / 620;
         const sy = this.height / 200;
+        // Use min for "object" scaling so circles stay round.
+        const s = Math.min(sx, sy);
 
         for (const o of overlays) {
-            if (o.type === 'smoke') {
-                this.drawSmoke(ctx, o.x * sx, o.y * sy);
-            } else if (o.type === 'blinker') {
-                this.drawBlinker(ctx, o.x * sx, o.y * sy, o.color || '#f08040');
-            } else if (o.type === 'vehicle') {
-                this.drawVehicle(ctx, o.y * sy, o.speed || 0.3, o.color || '#f08040');
+            switch (o.type) {
+                case 'smoke':
+                    this.drawSmoke(ctx, o.x * sx, o.y * sy, (o.scale || 1) * s);
+                    break;
+                case 'blinker':
+                    this.drawBlinker(ctx, o.x * sx, o.y * sy, o.color || '#f08040', s);
+                    break;
+                case 'vehicle':
+                    this.drawVehicle(ctx, o.y * sy, o.speed || 0.3, o.color || '#f08040', s);
+                    break;
+                case 'truck':
+                    this.drawTruck(ctx, o.y * sy, o.speed || 0.35, o.color || '#ffffff', s);
+                    break;
+                case 'airplane':
+                    this.drawAirplane(ctx, o.y * sy, o.speed || 1.0, o.color || '#ffffff', s);
+                    break;
+                case 'windmill':
+                    this.drawWindmill(ctx, o.x * sx, o.y * sy, (o.radius || 10) * s, o.phase || 0);
+                    break;
+                case 'craneJib':
+                    this.drawCraneJib(ctx, o.x * sx, o.y * sy, (o.length || 30) * s, o.phase || 0);
+                    break;
+                case 'shopper':
+                    this.drawShopper(ctx, o.x * sx, o.y * sy, (o.range || 20) * s, o.speed || 0.04, o.phase || 0);
+                    break;
             }
         }
     }
 
-    drawSmoke(ctx, x, y) {
+    drawSmoke(ctx, x, y, scale = 1) {
         // Three rising puffs offset by frame phase.
         ctx.save();
         for (let i = 0; i < 3; i++) {
             const t = ((this.frame + i * 30) % 90) / 90; // 0..1
-            const py = y - t * 28;
-            const px = x + Math.sin((this.frame * 0.04) + i) * 3;
-            const r = 3 + t * 4;
+            const py = y - t * 28 * scale;
+            const px = x + Math.sin((this.frame * 0.04) + i) * 3 * scale;
+            const r = (3 + t * 4) * scale;
             ctx.fillStyle = `rgba(200, 208, 216, ${0.7 * (1 - t)})`;
             ctx.beginPath();
             ctx.arc(px, py, r, 0, Math.PI * 2);
@@ -182,34 +246,209 @@ export class IsometricScene {
         ctx.restore();
     }
 
-    drawBlinker(ctx, x, y, color) {
-        // Pulsing safety dot.
+    drawBlinker(ctx, x, y, color, scale = 1) {
         const t = (Math.sin(this.frame * 0.15) + 1) / 2; // 0..1
         const alpha = 0.4 + t * 0.6;
         ctx.save();
         ctx.fillStyle = color;
         ctx.globalAlpha = alpha;
         ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.arc(x, y, 3 * scale, 0, Math.PI * 2);
         ctx.fill();
-        // Glow halo
         ctx.globalAlpha = alpha * 0.3;
         ctx.beginPath();
-        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.arc(x, y, 6 * scale, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
     }
 
-    drawVehicle(ctx, y, speed, color) {
-        // Small block sliding left→right across the canvas.
+    drawVehicle(ctx, y, speed, color, scale = 1) {
         const cycle = this.width + 40;
         const x = ((this.frame * speed) % cycle) - 20;
         ctx.save();
         ctx.fillStyle = color;
         ctx.strokeStyle = this.colors.outline;
         ctx.lineWidth = 1;
-        ctx.fillRect(x, y, 12, 6);
-        ctx.strokeRect(x + 0.5, y + 0.5, 12, 6);
+        ctx.fillRect(x, y, 12 * scale, 6 * scale);
+        ctx.strokeRect(x + 0.5, y + 0.5, 12 * scale, 6 * scale);
+        ctx.restore();
+    }
+
+    // Cab + trailer with wheels — reads as a delivery truck at small sizes.
+    drawTruck(ctx, y, speed, color, scale = 1) {
+        const w = 22 * scale;
+        const h = 7 * scale;
+        const cycle = this.width + w * 2;
+        // Negative speed = right→left
+        let x;
+        if (speed >= 0) {
+            x = ((this.frame * speed) % cycle) - w;
+        } else {
+            x = this.width - (((this.frame * -speed) % cycle) - w);
+        }
+
+        ctx.save();
+        ctx.strokeStyle = this.colors.outline;
+        ctx.lineWidth = 0.8;
+
+        // Trailer (back box)
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y - h, 14 * scale, h);
+        ctx.strokeRect(x + 0.5, y - h + 0.5, 14 * scale, h);
+
+        // Cab (front, slightly shorter and offset down)
+        const cabX = x + 14 * scale;
+        const cabY = y - h * 0.85;
+        ctx.fillStyle = '#5a7090';
+        ctx.fillRect(cabX, cabY, 6 * scale, h * 0.85);
+        ctx.strokeRect(cabX + 0.5, cabY + 0.5, 6 * scale, h * 0.85);
+
+        // Cab window
+        ctx.fillStyle = '#90a8c0';
+        ctx.fillRect(cabX + 1, cabY + 1, 4 * scale, 2 * scale);
+
+        // Wheels
+        ctx.fillStyle = '#2a3a5a';
+        const wheelR = 1.4 * scale;
+        ctx.beginPath(); ctx.arc(x + 3 * scale,  y, wheelR, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + 11 * scale, y, wheelR, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + 17 * scale, y, wheelR, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    // Stylised airplane sliding along a runway. White fuselage with wings.
+    drawAirplane(ctx, y, speed, color, scale = 1) {
+        const w = 32 * scale;
+        const cycle = this.width + w * 2;
+        const x = ((this.frame * speed) % cycle) - w;
+
+        ctx.save();
+        ctx.strokeStyle = this.colors.outline;
+        ctx.lineWidth = 0.8;
+        ctx.fillStyle = color;
+
+        // Fuselage
+        ctx.beginPath();
+        ctx.ellipse(x + 16 * scale, y, 16 * scale, 2.5 * scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Wings (slight isometric — tilted forward triangles)
+        ctx.beginPath();
+        ctx.moveTo(x + 14 * scale, y);
+        ctx.lineTo(x + 20 * scale, y - 6 * scale);
+        ctx.lineTo(x + 24 * scale, y - 6 * scale);
+        ctx.lineTo(x + 18 * scale, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x + 14 * scale, y);
+        ctx.lineTo(x + 20 * scale, y + 6 * scale);
+        ctx.lineTo(x + 24 * scale, y + 6 * scale);
+        ctx.lineTo(x + 18 * scale, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Tail fin
+        ctx.beginPath();
+        ctx.moveTo(x + 4 * scale, y);
+        ctx.lineTo(x + 6 * scale, y - 4 * scale);
+        ctx.lineTo(x + 9 * scale, y - 4 * scale);
+        ctx.lineTo(x + 8 * scale, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Nose tip in safety orange
+        ctx.fillStyle = '#f08040';
+        ctx.beginPath();
+        ctx.arc(x + 31 * scale, y, 1.5 * scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // Three rotating blades around a hub — wind turbine.
+    drawWindmill(ctx, x, y, radius, phase = 0) {
+        const angle = this.frame * 0.06 + phase;
+        ctx.save();
+        ctx.strokeStyle = '#f0f5fa';
+        ctx.fillStyle = '#f0f5fa';
+        ctx.lineWidth = Math.max(1, radius * 0.18);
+        ctx.lineCap = 'round';
+
+        // Three blades 120° apart
+        for (let i = 0; i < 3; i++) {
+            const a = angle + (i * Math.PI * 2 / 3);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + Math.cos(a) * radius, y + Math.sin(a) * radius);
+            ctx.stroke();
+        }
+
+        // Hub
+        ctx.fillStyle = '#5a7090';
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(1.2, radius * 0.18), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Slowly rotating crane jib — a horizontal arm pivoting around a tower top.
+    drawCraneJib(ctx, x, y, length, phase = 0) {
+        const angle = Math.sin(this.frame * 0.012 + phase) * 0.6; // gentle swing
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+
+        ctx.strokeStyle = this.colors.outline;
+        ctx.lineWidth = 1;
+
+        // Main jib (horizontal lattice arm)
+        ctx.fillStyle = '#f08040';
+        ctx.fillRect(-length * 0.25, -2, length, 3);
+        ctx.strokeRect(-length * 0.25 + 0.5, -1.5, length, 3);
+
+        // Counter-weight on the back
+        ctx.fillStyle = '#5a7090';
+        ctx.fillRect(-length * 0.25 - 4, -3, 4, 5);
+        ctx.strokeRect(-length * 0.25 - 3.5, -2.5, 4, 5);
+
+        // Hook line dropping from jib tip
+        const tipX = length * 0.7;
+        const swayY = 8 + Math.sin(this.frame * 0.04) * 2;
+        ctx.beginPath();
+        ctx.moveTo(tipX, 1);
+        ctx.lineTo(tipX, swayY);
+        ctx.stroke();
+        // Hook
+        ctx.fillStyle = '#2a3a5a';
+        ctx.beginPath();
+        ctx.arc(tipX, swayY + 1, 1, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // A tiny shopper/pedestrian — small dot wandering inside a range.
+    drawShopper(ctx, cx, cy, range, speed, phase = 0) {
+        const t = this.frame * speed + phase;
+        const x = cx + Math.cos(t) * range;
+        const y = cy + Math.sin(t * 1.3) * (range * 0.3);
+        ctx.save();
+        // Body
+        ctx.fillStyle = '#5a7090';
+        ctx.beginPath();
+        ctx.arc(x, y, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+        // Head
+        ctx.fillStyle = '#d4b896';
+        ctx.beginPath();
+        ctx.arc(x, y - 1.6, 0.9, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
     }
 
