@@ -374,6 +374,8 @@
     padding: 6px 12px;
     background: var(--bg-panel);
     border-top: 2px solid var(--border-outer);
+    flex-shrink: 0;
+    z-index: 10;
 }
 
 .dashboard-footer .btn {
