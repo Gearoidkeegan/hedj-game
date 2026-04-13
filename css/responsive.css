@@ -170,12 +170,28 @@
         -webkit-overflow-scrolling: touch;
     }
 
-    /* When hedging tab is active, shrink left panel to just the viewport, hide tabs */
+    /* Show mobile exposure selector inside hedging panel */
+    .mobile-exposure-selector {
+        display: block !important;
+        padding: 4px 6px;
+        border-bottom: 1px solid var(--border-inner);
+    }
+
+    .mobile-exposure-dropdown {
+        font-size: 11px;
+        min-height: 44px;
+    }
+
+    /* When hedging tab is active, hide left panel entirely on mobile */
     .dashboard-left.mobile-hedging-active {
         flex: 0 0 auto !important;
     }
 
     .dashboard-left.mobile-hedging-active .tab-content {
+        display: none !important;
+    }
+
+    .dashboard-left.mobile-hedging-active .isometric-viewport {
         display: none !important;
     }
 

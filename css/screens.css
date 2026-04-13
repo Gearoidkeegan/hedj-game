@@ -299,6 +299,22 @@
     white-space: nowrap;
 }
 
+/* ---- Mobile exposure selector (hidden on desktop) ---- */
+.mobile-exposure-selector {
+    display: none;
+}
+
+.mobile-exposure-dropdown {
+    width: 100%;
+    padding: 8px;
+    font-family: var(--font-pixel);
+    font-size: 9px;
+    color: var(--text-primary);
+    background: var(--bg-input);
+    border: 1px solid var(--border-inner);
+    min-height: 40px;
+}
+
 /* ---- DASHBOARD SCREEN ---- */
 .dashboard-screen {
     display: flex;

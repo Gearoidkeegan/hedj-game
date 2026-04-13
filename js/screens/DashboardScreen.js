@@ -125,6 +125,13 @@ export class DashboardScreen {
                             <span id="policy-badge" class="badge" style="font-size:6px"></span>
                         </div>
 
+                        <!-- Mobile exposure selector (hidden on desktop) -->
+                        <div class="mobile-exposure-selector" id="mobile-exposure-selector">
+                            <select id="mobile-exposure-select" class="mobile-exposure-dropdown">
+                                <option value="">— Select exposure —</option>
+                            </select>
+                        </div>
+
                         <!-- Scrollable middle: exposure info, direction test, products, ladder -->
                         <div style="flex:1;min-height:0;overflow-y:auto;">
                             <!-- Bloomberg terminal chart — selected exposure price -->
@@ -228,6 +235,18 @@ export class DashboardScreen {
                 }
             });
         });
+
+        // Mobile exposure selector dropdown
+        this.populateMobileExposureSelector();
+        const mobileExpSelect = this.el.querySelector('#mobile-exposure-select');
+        if (mobileExpSelect) {
+            mobileExpSelect.addEventListener('change', () => {
+                const underlying = mobileExpSelect.value;
+                if (underlying) {
+                    this.selectExposure(underlying);
+                }
+            });
+        }
 
         // BEGIN QUARTER — starts Bloomberg animation + live trading
         this.el.querySelector('#btn-begin-quarter').addEventListener('click', () => {
@@ -1076,6 +1095,9 @@ export class DashboardScreen {
                 }
             });
         });
+
+        // Refresh mobile exposure dropdown
+        this.populateMobileExposureSelector();
     }
 
     /**
@@ -1210,10 +1232,30 @@ export class DashboardScreen {
         });
     }
 
+    populateMobileExposureSelector() {
+        const select = this.el.querySelector('#mobile-exposure-select');
+        if (!select) return;
+        const state = gameState.get();
+        select.innerHTML = '<option value="">— Select exposure —</option>';
+        for (const exp of state.exposures) {
+            const hedgeRatio = gameLoop.getHedgeRatio(exp.underlying);
+            const label = `${exp.underlying} (${exp.type.toUpperCase()}) — ${formatPercent(hedgeRatio, 0)} hedged`;
+            select.innerHTML += `<option value="${exp.underlying}">${label}</option>`;
+        }
+        // Sync with current selection
+        if (this.selectedExposure) {
+            select.value = this.selectedExposure.underlying;
+        }
+    }
+
     selectExposure(underlying) {
         const state = gameState.get();
         this.selectedExposure = state.exposures.find(e => e.underlying === underlying);
         if (!this.selectedExposure) return;
+
+        // Sync mobile dropdown
+        const mobileSelect = this.el.querySelector('#mobile-exposure-select');
+        if (mobileSelect) mobileSelect.value = underlying;
 
         const exp = this.selectedExposure;
         const currentRate = state.currentRates[exp.underlying] || 0;
