@@ -160,14 +160,12 @@
         display: none !important;
         width: 100% !important;
         max-height: none !important;
-        height: 100%;
     }
 
     .dashboard-right.mobile-active {
         display: flex !important;
         flex: 1;
         min-height: 0;
-        height: auto;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
     }
@@ -326,13 +324,10 @@
         font-size: 14px !important;
     }
 
-    /* --- Footer: sticky at bottom on mobile --- */
+    /* --- Footer: always visible at bottom on mobile --- */
     .dashboard-footer {
         padding: 4px 8px;
-        position: sticky;
-        bottom: 0;
-        background: var(--bg-panel);
-        border-top: 2px solid var(--border-outer);
+        flex-shrink: 0;
     }
 
     .dashboard-footer .btn {
@@ -340,6 +335,11 @@
         font-size: 10px;
         min-height: 44px;
         flex: 1;
+    }
+
+    /* Policy label in footer — hide on mobile (shown in policy strip instead) */
+    .dashboard-footer > div:first-child {
+        display: none;
     }
 
     /* --- Board Requests panel: larger touch targets --- */
