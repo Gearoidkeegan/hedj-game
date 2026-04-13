@@ -74,6 +74,9 @@ export class DashboardScreen {
                 </div>
             </div>
 
+            <!-- Policy strip -->
+            <div class="policy-strip" id="policy-strip"></div>
+
             <!-- Main area -->
             <div class="dashboard-main">
                 <!-- Left: Scene + Exposures -->
@@ -1708,6 +1711,33 @@ export class DashboardScreen {
 
             // Click badge to show full policy detail
             badge.addEventListener('click', () => this.showPolicyDetail());
+
+            // Populate policy strip
+            const strip = this.el.querySelector('#policy-strip');
+            if (strip) {
+                const horizonLabel = `${policy.hedgeHorizon * 3}mo`;
+                const products = policy.requiredProducts?.length > 0
+                    ? policy.requiredProducts.join(', ')
+                    : 'any';
+                const budgetLabel = policy.budgetRateType === 'none' ? 'no budget'
+                    : policy.budgetRateType === 'fixed' ? 'fixed budget'
+                    : policy.budgetRateType === 'quarterly' ? 'quarterly budget'
+                    : policy.budgetRateType === 'annual' ? 'annual budget'
+                    : policy.budgetRateType;
+
+                strip.innerHTML = `
+                    <span class="policy-strip-name">${policy.name}</span>
+                    <span class="policy-strip-details">
+                        ${formatPercent(policy.minHedgeRatio, 0)}-${formatPercent(policy.maxHedgeRatio, 0)}
+                        · ${horizonLabel}
+                        · ${products}
+                        · ${budgetLabel}
+                    </span>
+                    <span class="policy-strip-tap">TAP FOR DETAIL</span>
+                `;
+                strip.style.cursor = 'pointer';
+                strip.addEventListener('click', () => this.showPolicyDetail());
+            }
         }
 
         // Also add click handler to the policy label text

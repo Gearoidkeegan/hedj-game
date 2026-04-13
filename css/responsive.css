@@ -341,7 +341,60 @@
     }
 
     .industry-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+        max-height: none;
+        overflow-y: visible;
+        padding: 2px;
+    }
+
+    .industry-card {
+        padding: 8px 6px;
+        min-height: 36px;
+    }
+
+    .industry-card .industry-name {
+        font-size: 7px;
+        margin-bottom: 2px;
+    }
+
+    .industry-card .industry-company {
+        font-size: 13px;
+        margin-bottom: 0;
+    }
+
+    .industry-card .industry-exposures {
+        display: none;
+    }
+
+    .setup-screen h2 {
+        font-size: 10px !important;
+        margin-bottom: 8px;
+    }
+
+    .setup-screen {
+        padding: 8px 10px;
+    }
+
+    .industry-detail-panel {
+        margin-top: 6px;
+        padding: 6px 8px;
+        min-height: auto;
+    }
+
+    .setup-fields {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .setup-field {
+        flex: 1 1 45%;
+        min-width: 0;
+    }
+
+    .setup-fields input {
+        min-height: 36px !important;
+        font-size: 14px !important;
     }
 
     .board-members {
@@ -461,48 +514,43 @@
         min-height: 48px;
     }
 
-    /* Setup screen — scrollable on mobile */
+    /* Setup screen — fit single viewport on mobile */
     .setup-screen {
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         touch-action: pan-y;
-        padding-bottom: 24px;
+        padding-bottom: 8px;
+        display: flex;
+        flex-direction: column;
     }
 
     .setup-screen .panel {
         max-width: 100%;
+        margin-bottom: 4px;
     }
 
     .setup-bottom {
         position: relative;
-        padding-bottom: 16px;
-    }
-
-    .setup-fields label {
-        font-size: 9px;
-    }
-
-    .setup-fields input {
-        font-size: 16px; /* prevents iOS zoom on focus */
-        min-height: 44px;
+        padding-bottom: 8px;
+        margin-top: 6px;
     }
 
     .setup-actions {
-        padding: 8px 0;
+        padding: 4px 0;
     }
 
     .setup-actions .btn {
-        min-height: 48px;
-        font-size: 12px;
+        min-height: 40px;
+        font-size: 11px;
     }
 
-    /* Readable text bigger on mobile */
-    .readable-text {
-        font-size: 15px;
+    .char-btn {
+        min-width: 70px !important;
+        min-height: 36px !important;
     }
 
     .industry-detail-panel .readable-text {
-        font-size: 14px;
+        font-size: 13px;
     }
 
     /* --- Summary screen: tighter on mobile --- */
