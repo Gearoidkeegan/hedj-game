@@ -12,6 +12,7 @@
     #game-viewport {
         width: 100vw;
         height: 100vh;
+        height: 100dvh; /* dynamic viewport height — excludes mobile browser chrome */
         border: none;
         border-radius: 0;
         position: fixed;
@@ -63,6 +64,7 @@
     :root {
         --game-width: 100vw;
         --game-height: 100vh;
+        --game-height: 100dvh;
     }
 
     /* --- Quarter Bar: Two-row mobile layout --- */
@@ -324,10 +326,22 @@
         font-size: 14px !important;
     }
 
-    /* --- Footer: always visible at bottom on mobile --- */
+    /* --- Footer: pinned to bottom on mobile --- */
+    .dashboard-screen {
+        padding-bottom: 52px; /* reserve space for fixed footer */
+    }
+
     .dashboard-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
         padding: 4px 8px;
-        flex-shrink: 0;
+        background: var(--bg-panel);
+        border-top: 2px solid var(--border-outer);
+        z-index: 100;
+        display: flex;
+        gap: 8px;
     }
 
     .dashboard-footer .btn {
