@@ -1,7 +1,9 @@
 // BoardAI — personality-driven board reactions with CEO personas
 // Selects contextual dialogue based on quarter performance, player behaviour, and board member personality
+// v2: TMS spending awareness, forecast variance feedback, new CEO personas
 
 import { gameState } from './GameState.js';
+import { forecastEngine } from './ForecastEngine.js';
 import { GAME_CONFIG } from '../utils/constants.js';
 
 class BoardAIController {
@@ -27,7 +29,7 @@ class BoardAIController {
      * Assign a random CEO persona for this game.
      */
     assignCEOPersona(rng) {
-        const personas = ['jameson', 'musk', 'oleary', 'dimon', 'buffett'];
+        const personas = ['jameson', 'musk', 'oleary', 'dimon', 'buffett', 'jobs', 'dorsey', 'ackman'];
         this.ceoPersona = rng.pick(personas);
         return this.ceoPersona;
     }
@@ -104,7 +106,6 @@ class BoardAIController {
         }
 
         if (state.tradeDirectionErrors > 0 && pool.trade_direction_error && state.tradesThisQuarter > 0) {
-            // Only mention if error happened this quarter (and trades were actually booked)
             const prevErrors = state.quarterlyResults.length > 1
                 ? (state.quarterlyResults[state.quarterlyResults.length - 2]?.tradeDirectionErrors || 0)
                 : 0;
@@ -153,8 +154,67 @@ class BoardAIController {
             lines.push(rng.pick(overhedgeLines));
         }
 
+        // v2: TMS spending feedback (30% chance per member to comment)
+        if (rng.chance(0.3)) {
+            const tmsLine = this.getTMSFeedbackLine(pool, state, rng);
+            if (tmsLine) lines.push(tmsLine);
+        }
+
+        // v2: Forecast variance feedback (25% chance, only if variance is notable)
+        if (rng.chance(0.25)) {
+            const varianceLine = this.getVarianceFeedbackLine(pool, state, rng);
+            if (varianceLine) lines.push(varianceLine);
+        }
+
         // Limit to 2 lines max per member (keep it punchy)
         return lines.slice(0, 2);
+    }
+
+    /**
+     * Get TMS-related feedback line for a board member.
+     */
+    getTMSFeedbackLine(pool, state, rng) {
+        const moduleCount = state.tmsModuleCount || 0;
+        if (moduleCount === 0) return null;
+
+        // Check if TMS spending is excessive
+        const totalCost = state.tmsTotalCost || 0;
+        const totalAnnualExposure = (state.exposures || [])
+            .filter(e => e.type !== 'ir')
+            .reduce((sum, e) => sum + (e.quarterlyNotional || 0) * 4, 0);
+
+        const overSpending = (totalAnnualExposure > 0 && totalCost > totalAnnualExposure * 0.01) ||
+                            (state.cashBalance > 0 && totalCost > state.cashBalance * 0.20);
+
+        if (overSpending && pool.tms_overspend) {
+            return rng.pick(pool.tms_overspend);
+        } else if (moduleCount <= 2 && pool.tms_positive) {
+            return rng.pick(pool.tms_positive);
+        }
+
+        return null;
+    }
+
+    /**
+     * Get forecast variance feedback line for a board member.
+     */
+    getVarianceFeedbackLine(pool, state, rng) {
+        const variance = forecastEngine.getEffectiveVariance(
+            state.currentYearOffset,
+            state.tmsModuleCount || 0
+        );
+
+        // High variance (>25%) — board is concerned
+        if (variance > 0.25 && pool.high_variance) {
+            return rng.pick(pool.high_variance);
+        }
+
+        // Low variance (<15%) — board is pleased
+        if (variance < 0.15 && pool.low_variance) {
+            return rng.pick(pool.low_variance);
+        }
+
+        return null;
     }
 
     /**
@@ -200,8 +260,16 @@ class BoardAIController {
         // Policy compliance bonus
         if (this.wasInComplianceLastQuarter(state)) delta += 2;
 
+        // v2: Forecast variance penalty — high variance means less predictability
+        const variance = forecastEngine.getEffectiveVariance(
+            state.currentYearOffset,
+            state.tmsModuleCount || 0
+        );
+        if (variance > 0.30 && member.personality === 'cautious') delta -= 1;
+        if (variance < 0.15) delta += 1; // Tight forecasts = happy board
+
         // Clamp
-        return Math.max(GAME_CONFIG.SATISFACTION_LOSS_MAX / 3, Math.min(GAME_CONFIG.SATISFACTION_GAIN_MAX / 3, delta));
+        return Math.round(Math.max(GAME_CONFIG.SATISFACTION_LOSS_MAX / 3, Math.min(GAME_CONFIG.SATISFACTION_GAIN_MAX / 3, delta)));
     }
 
     /**
@@ -217,15 +285,34 @@ class BoardAIController {
         const revenue = state.industry?.annualRevenue || 1e9;
         const bigThreshold = revenue * 0.01; // 1% of revenue
 
-        // CEO appears on big swings or periodically
-        if (Math.abs(result.netPnL) > bigThreshold) {
-            const category = result.netPnL > 0 ? 'big_win' : 'big_loss';
-            return [rng.pick(ceoPool[category] || ceoPool.general)];
+        // CEO always appears on the very first board review to introduce themselves
+        if (state.totalQuartersPlayed === 0) {
+            return [rng.pick(ceoPool.general)];
         }
 
-        // Periodic appearance (~every 3 quarters)
-        if (state.totalQuartersPlayed > 0 && state.totalQuartersPlayed % 3 === 0) {
-            return [rng.pick(ceoPool.general)];
+        // CEO appears on big swings
+        if (Math.abs(result.netPnL) > bigThreshold) {
+            const category = result.netPnL > 0 ? 'big_win' : 'big_loss';
+            const lines = [rng.pick(ceoPool[category] || ceoPool.general)];
+
+            // v2: CEO also comments on TMS if recently purchased
+            if ((state.tmsModuleCount || 0) > 0 && ceoPool.tms_comment && rng.chance(0.4)) {
+                lines.push(rng.pick(ceoPool.tms_comment));
+            }
+
+            return lines;
+        }
+
+        // Periodic appearance (~every 2-3 quarters)
+        if (state.totalQuartersPlayed % 3 === 0 || rng.chance(0.35)) {
+            const lines = [rng.pick(ceoPool.general)];
+
+            // Chance to comment on TMS
+            if ((state.tmsModuleCount || 0) > 0 && ceoPool.tms_comment && rng.chance(0.3)) {
+                lines.push(rng.pick(ceoPool.tms_comment));
+            }
+
+            return lines;
         }
 
         return null;
@@ -240,7 +327,10 @@ class BoardAIController {
             'musk': 'ElonUsk',
             'oleary': "Michael O'Scary",
             'dimon': 'Jamie Diamond',
-            'buffett': 'Warren Biscuit'
+            'buffett': 'Warren Biscuit',
+            'jobs': 'Steve Jobsworth',
+            'dorsey': 'Jack Doorstep',
+            'ackman': 'Bill Hackman'
         };
         return names[this.ceoPersona] || 'The CEO';
     }
@@ -286,6 +376,13 @@ class BoardAIController {
 
         // Cash pressure
         if (state.cashBalance < state.startingCash * 0.15) stress += 15;
+
+        // v2: High forecast variance adds stress
+        const variance = forecastEngine.getEffectiveVariance(
+            state.currentYearOffset,
+            state.tmsModuleCount || 0
+        );
+        if (variance > 0.30) stress += 5;
 
         return Math.min(100, Math.max(0, Math.round(stress)));
     }

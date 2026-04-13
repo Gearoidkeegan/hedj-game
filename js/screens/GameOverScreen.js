@@ -297,7 +297,7 @@ export class GameOverScreen {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.innerHTML = `
-            <div class="modal" style="min-width:400px;">
+            <div class="modal" style="width:95vw;max-width:500px;">
                 <div class="modal-header">
                     LEADERBOARD
                     <button class="modal-close" id="close-leaderboard">X</button>

@@ -86,6 +86,21 @@ class GameStateManager {
             perfectCompliance: true,
             peAcquired: false,        // Private equity acquisition flag
 
+            // Forecast variance (v2)
+            forecastVarianceBase: 0.40,   // +/-40% base variance in Y1
+            realizedNotionals: {},        // { exposureId: realizedNotional } — set at resolution
+
+            // TMS (v2)
+            tmsModuleCount: 0,            // TMS modules purchased (0-8)
+            tmsTotalCost: 0,              // Running total spent on TMS
+
+            // Exposure progression (v2)
+            allExposures: [],             // Full exposure list from industry template
+            activeExposureIds: [],        // Currently unlocked exposure IDs
+
+            // Board requests (v2)
+            approvedProducts: [],         // Products approved via board request (e.g. 'option', 'swap')
+
             // UI state
             selectedExposureIndex: 0
         };
@@ -100,10 +115,18 @@ class GameStateManager {
         const maxStart = GAME_CONFIG.MAX_DATA_YEAR - GAME_CONFIG.GAME_WINDOW_YEARS;
         const startYear = this.rng.intRange(GAME_CONFIG.MIN_DATA_YEAR, maxStart);
 
+        // Deep-copy all exposures for progression tracking
+        const allExposures = JSON.parse(JSON.stringify(industry.exposures));
+
+        // Filter to only exposures unlocked at Q0
+        const initialExposures = allExposures.filter(exp => (exp.unlockQuarter || 0) <= 0);
+        const activeExposureIds = initialExposures.map(exp => exp.id);
+
         // Set budget rates from market data at start + small random spread
+        // Only set for initially active exposures; others set when unlocked
         const budgetRates = {};
-        if (industry.exposures) {
-            for (const exp of industry.exposures) {
+        if (hedgingPolicy && hedgingPolicy.budgetRateType !== 'none') {
+            for (const exp of initialExposures) {
                 // Budget rates will be set by MarketEngine when data loads
                 budgetRates[exp.underlying] = 0;
             }
@@ -130,7 +153,9 @@ class GameStateManager {
             currentQuarter: 1,
             totalQuartersPlayed: 0,
             boardSatisfaction: GAME_CONFIG.STARTING_SATISFACTION,
-            exposures: JSON.parse(JSON.stringify(industry.exposures))
+            exposures: JSON.parse(JSON.stringify(initialExposures)),
+            allExposures,
+            activeExposureIds
         };
 
         this.emit('gameInit', this.state);
@@ -259,8 +284,30 @@ class GameStateManager {
             }
         }
 
+        // Check for newly unlockable exposures (v2 progression)
+        this.checkExposureUnlocks();
+
+        // Clear realized notionals from previous quarter
+        this.state.realizedNotionals = {};
+
         this.emit('quarterAdvanced', this.state);
         this.emit('stateChange', this.state);
+    }
+
+    // Check if any exposures should unlock at the current totalQuartersPlayed
+    checkExposureUnlocks() {
+        const allExps = this.state.allExposures || [];
+        const newlyUnlocked = allExps.filter(exp =>
+            exp.unlockQuarter === this.state.totalQuartersPlayed &&
+            !this.state.activeExposureIds.includes(exp.id)
+        );
+
+        if (newlyUnlocked.length > 0) {
+            const copies = JSON.parse(JSON.stringify(newlyUnlocked));
+            this.state.exposures.push(...copies);
+            this.state.activeExposureIds.push(...newlyUnlocked.map(e => e.id));
+            this.emit('exposuresUnlocked', copies);
+        }
     }
 
     // Check if game should end
@@ -284,6 +331,26 @@ class GameStateManager {
         if (!this.canExtend()) return false;
         this.state.extensionsUsed++;
         this.state.maxQuarters += GAME_CONFIG.EXTENSION_QUARTERS;
+
+        // v2: Scale existing exposure notionals by 1.2x-1.5x on first extension
+        if (this.state.extensionsUsed === 1 && this.rng) {
+            const scaleFactor = 1.2 + this.rng.float() * 0.3; // 1.2 to 1.5
+            for (const exp of this.state.exposures) {
+                if (exp.type !== 'ir') {
+                    exp.quarterlyNotional = Math.round(exp.quarterlyNotional * scaleFactor);
+                }
+            }
+            // Also scale in allExposures for consistency
+            for (const exp of this.state.allExposures) {
+                if (exp.type !== 'ir') {
+                    exp.quarterlyNotional = Math.round(exp.quarterlyNotional * scaleFactor);
+                }
+            }
+        }
+
+        // v2: Unlock any exposures with unlockQuarter >= 9 (extension-only exposures)
+        this.checkExposureUnlocks();
+
         this.emit('gameExtended', this.state);
         this.emit('stateChange', this.state);
         return true;
@@ -313,14 +380,25 @@ class GameStateManager {
         return {
             ...this.state,
             _rngState: this.rng ? this.rng.state : null,
-            _version: 1
+            _version: 2
         };
     }
 
     // Restore from save
     fromJSON(data) {
-        if (!data || data._version !== 1) return false;
+        if (!data || (data._version !== 1 && data._version !== 2)) return false;
         this.state = { ...this.createInitialState(), ...data };
+
+        // Migrate v1 saves: populate v2 fields if missing
+        if (data._version === 1) {
+            if (!this.state.allExposures || this.state.allExposures.length === 0) {
+                this.state.allExposures = JSON.parse(JSON.stringify(this.state.exposures));
+            }
+            if (!this.state.activeExposureIds || this.state.activeExposureIds.length === 0) {
+                this.state.activeExposureIds = this.state.exposures.map(e => e.id);
+            }
+        }
+
         if (data._rngState !== null) {
             this.rng = new SeededRandom(data.seed);
             this.rng.state = data._rngState;

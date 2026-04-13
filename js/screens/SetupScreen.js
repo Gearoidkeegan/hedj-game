@@ -244,7 +244,9 @@ export class SetupScreen {
             eventEngine.reset();
         }
 
-        gameLoop.startGame({
+        // Initialize game state (exposures, startYear, etc.) WITHOUT triggering
+        // the dashboard screen transition yet — we need to set market rates first.
+        gameState.initGame({
             playerName: playerName || 'Treasury Manager',
             industry,
             hedgingPolicy,
@@ -255,38 +257,23 @@ export class SetupScreen {
         });
 
         if (isCareer) {
-            // Career mode: let CareerEngine set up banks, events, board, and state overrides
             careerEngine.initLevel(industry, rng);
         } else {
-            // Quick play: assign CEO persona now that the seeded RNG exists
             boardAI.assignCEOPersona(gameState.getRng());
         }
 
-        // Set market rates — prefer real data, fall back to placeholders
+        // Set market rates BEFORE the dashboard renders so rates are visible immediately
         this.setMarketRates(industry, rng);
+
+        // NOW trigger the dashboard screen transition
+        gameLoop.beginDecisionPhase();
     }
 
     setMarketRates(industry, rng) {
         const state = gameState.get();
 
-        // Try to use real historical data
-        if (marketEngine.isLoaded()) {
-            const year = state.startYear;
-            const quarter = 1;
-            const spotRates = marketEngine.getRatesForQuarter(state.exposures, year, quarter);
-            const budgetRates = marketEngine.getBudgetRates(state.exposures, year, quarter);
-
-            if (Object.keys(spotRates).length > 0) {
-                gameState.update({
-                    currentRates: spotRates,
-                    previousRates: { ...spotRates },
-                    budgetRates
-                });
-                return;
-            }
-        }
-
-        // Fallback: placeholder rates
+        // Placeholder rates — used as fallback when historical data is missing
+        // (e.g. EURUSD data starts 1999 but game can start in 1994)
         const placeholderRates = {
             'EURUSD': 1.10 + rng.floatRange(-0.10, 0.10),
             'EURGBP': 0.86 + rng.floatRange(-0.05, 0.05),
@@ -303,18 +290,28 @@ export class SetupScreen {
             'WHEAT': 6.0 + rng.floatRange(-1.0, 1.0),
             'CORN': 4.5 + rng.floatRange(-0.8, 0.8),
             'GOLD': 1900 + rng.floatRange(-200, 200),
+            'COFFEE': 150 + rng.floatRange(-40, 60),
             'EURIBOR': 0.035 + rng.floatRange(-0.015, 0.015),
             'SOFR': 0.05 + rng.floatRange(-0.02, 0.02),
             'SONIA': 0.05 + rng.floatRange(-0.02, 0.02)
         };
 
+        // Try to use real historical data, falling back to placeholders per-underlying
+        const historicalRates = {};
+        if (marketEngine.isLoaded()) {
+            const year = state.startYear;
+            const quarter = 1;
+            const spotRates = marketEngine.getRatesForQuarter(state.exposures, year, quarter);
+            Object.assign(historicalRates, spotRates);
+        }
+
         const budgetRates = {};
         const currentRates = {};
 
         for (const exp of state.exposures) {
-            const baseRate = placeholderRates[exp.underlying] || 1.0;
+            // Prefer historical, fall back to placeholder
+            const baseRate = historicalRates[exp.underlying] || placeholderRates[exp.underlying] || 1.0;
             currentRates[exp.underlying] = baseRate;
-            // Budget rate = current rate + spread (favorable to company)
             const spread = exp.budgetRateSpread || 0.02;
             if (exp.direction === 'buy') {
                 budgetRates[exp.underlying] = baseRate * (1 - spread);

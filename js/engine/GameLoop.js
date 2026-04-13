@@ -3,6 +3,8 @@
 import { gameState } from './GameState.js';
 import { eventEngine } from './EventEngine.js';
 import { careerEngine } from './CareerEngine.js';
+import { marketEngine } from './MarketEngine.js';
+import { forecastEngine } from './ForecastEngine.js';
 import { PHASE, GAME_CONFIG } from '../utils/constants.js';
 
 class GameLoopController {
@@ -10,9 +12,14 @@ class GameLoopController {
         this.onPhaseChange = null; // Callback set by main.js to trigger screen transitions
     }
 
-    // Start a new game
+    // Start a new game (called from SetupScreen for backward compat)
     startGame({ playerName, industry, hedgingPolicy, seed, playerGender, companyName, contactEmail }) {
         gameState.initGame({ playerName, industry, hedgingPolicy, seed, playerGender, companyName, contactEmail });
+        this.setPhase(PHASE.DECISION);
+    }
+
+    // Transition to decision phase (used when state is already initialized)
+    beginDecisionPhase() {
         this.setPhase(PHASE.DECISION);
     }
 
@@ -35,6 +42,15 @@ class GameLoopController {
     // Process quarter resolution: advance rates, calculate P&L, check margins
     resolveQuarter() {
         const state = gameState.get();
+
+        // v2: Generate realized notionals (forecast variance)
+        const realized = forecastEngine.generateQuarterRealized(
+            state.exposures,
+            state.currentYearOffset,
+            state.tmsModuleCount || 0,
+            gameState.getRng()
+        );
+        gameState.update({ realizedNotionals: realized });
 
         // MarketEngine will have already updated rates before this is called
         // Calculate P&L for this quarter
@@ -104,48 +120,94 @@ class GameLoopController {
         const details = [];
 
         // Exposure P&L: (budget_rate - actual_rate) * notional for each exposure
+        // v2: Use realized notional (with forecast variance) instead of fixed quarterlyNotional
+        const policy = state.hedgingPolicy;
+        const hasBudgetRate = policy && policy.budgetRateType !== 'none';
+
         for (const exposure of state.exposures) {
-            const budgetRate = state.budgetRates[exposure.underlying] || 0;
+            const budgetRate = hasBudgetRate ? (state.budgetRates[exposure.underlying] || 0) : 0;
             const currentRate = state.currentRates[exposure.underlying] || budgetRate;
-            const notional = exposure.quarterlyNotional || 0;
+            const forecastNotional = exposure.quarterlyNotional || 0;
+            const realizedNotional = (state.realizedNotionals && state.realizedNotionals[exposure.id])
+                || forecastNotional;
 
             let expPnL = 0;
-            if (exposure.direction === 'buy') {
-                // Buying: benefit when price drops below budget
-                expPnL = (budgetRate - currentRate) * notional;
-            } else {
-                // Selling: benefit when price rises above budget
-                expPnL = (currentRate - budgetRate) * notional;
+            if (hasBudgetRate && budgetRate !== 0) {
+                // Percentage-based P&L normalised relative to the budget rate.
+                const priceMoveRatio = (currentRate - budgetRate) / budgetRate;
+
+                if (exposure.direction === 'buy') {
+                    // Commodity buy: price up → more cost → LOSS
+                    expPnL = -priceMoveRatio * realizedNotional;
+                } else {
+                    // Commodity sell: price up → more revenue → GAIN
+                    expPnL = priceMoveRatio * realizedNotional;
+                }
+
+                // FX EUR-cross rates have an INVERSE relationship:
+                // EURUSD up = EUR stronger = foreign currency worth LESS in EUR.
+                // So for a EUR company receiving USD (sell direction), rate UP = LOSS,
+                // which is the opposite of the commodity convention above.
+                if (exposure.type === 'fx') {
+                    expPnL = -expPnL;
+                }
             }
             exposurePnL += expPnL;
+
+            const variancePct = forecastNotional > 0
+                ? ((realizedNotional - forecastNotional) / forecastNotional) * 100
+                : 0;
+
             details.push({
                 type: 'exposure',
                 underlying: exposure.underlying,
                 description: exposure.description,
                 pnl: expPnL,
                 budgetRate,
-                currentRate
+                currentRate,
+                forecastNotional,
+                realizedNotional,
+                variancePct
             });
         }
 
         // Hedge P&L: MTM changes on active hedges + settlements
+        // Track settled (maturing this Q) vs unsettled (future) separately
         const settledHedges = [];
+        let settledHedgePnL = 0;   // Cash flow from hedges settling this quarter (full cumulative MTM)
+        let unsettledHedgePnL = 0; // MTM change on hedges maturing in future quarters
+        let totalHedgeMtm = 0;     // Total current MTM across all hedges (for programme view)
         for (const hedge of state.hedgePortfolio) {
             if (hedge.status !== 'active') continue;
 
             const currentRate = state.currentRates[hedge.underlying] || hedge.contractRate;
             let mtmChange = 0;
 
-            if (hedge.productType === 'forward') {
-                // Forward MTM = (market - contract) * notional * direction
+            // Hedge MTM uses the same percentage base (budget rate) as exposure P&L so
+            // that a 100%-hedged position produces a near-zero net.  The hedge locks in
+            // the contract rate, so its value is the difference between the contract rate
+            // and the current rate, expressed as a percentage of the budget rate and
+            // applied to the hedge notional.
+            // MTM = (currentRate - contractRate) / budgetRate * notional * direction
+
+            if (hedge.productType === 'forward' || hedge.productType === 'future') {
                 const direction = hedge.direction === 'buy' ? 1 : -1;
-                const newMtm = (currentRate - hedge.contractRate) * hedge.notional * direction;
+                const budgetRate = state.budgetRates[hedge.underlying] || hedge.contractRate;
+                const baseRate = budgetRate !== 0 ? budgetRate : hedge.contractRate;
+                const priceMoveRatio = baseRate !== 0
+                    ? (currentRate - hedge.contractRate) / baseRate
+                    : 0;
+                const newMtm = priceMoveRatio * hedge.notional * direction;
                 mtmChange = newMtm - (hedge.currentMtm || 0);
                 hedge.currentMtm = newMtm;
             } else if (hedge.productType === 'option') {
-                // Simplified option: intrinsic value only
+                // Simplified option: intrinsic value as % of budget rate, then * notional
                 const direction = hedge.direction === 'buy' ? 1 : -1;
-                const intrinsic = Math.max(0, (currentRate - hedge.strikeRate) * direction);
+                const strike = hedge.strikeRate || hedge.strike || 1;
+                const budgetRate = state.budgetRates[hedge.underlying] || strike;
+                const baseRate = budgetRate !== 0 ? budgetRate : strike;
+                const rawIntrinsic = Math.max(0, (currentRate - strike) * direction);
+                const intrinsic = rawIntrinsic / baseRate;
                 const newMtm = intrinsic * hedge.notional - (hedge.premiumPaid || 0);
                 mtmChange = newMtm - (hedge.currentMtm || 0);
                 hedge.currentMtm = newMtm;
@@ -160,19 +222,25 @@ class GameLoopController {
             }
 
             hedgePnL += mtmChange;
+            totalHedgeMtm += hedge.currentMtm || 0;
 
             // Check if hedge matures this quarter.
-            // maturityQuarter = TQP_at_book + tenorQuarters, so a Q+1 hedge booked at TQP=0
-            // has maturity=1 and should mature when TQP reaches 1 (i.e. the NEXT quarter's
-            // resolution), not in the same quarter it was booked.
-            if (hedge.maturityQuarter <= state.totalQuartersPlayed) {
+            // totalQuartersPlayed is 0-indexed and hasn't incremented yet during
+            // resolution, so the quarter being resolved is totalQuartersPlayed + 1.
+            const currentQ = state.totalQuartersPlayed + 1;
+            const maturesThisQ = hedge.maturityQuarter <= currentQ;
+            if (maturesThisQ) {
                 hedge.status = 'matured';
                 cashImpact += hedge.currentMtm || 0;
                 settledHedges.push(hedge);
+                // Settlement cash flow = full accumulated MTM at maturity
+                settledHedgePnL += hedge.currentMtm || 0;
+            } else {
+                unsettledHedgePnL += mtmChange;
             }
 
-            // Margin call check for forwards
-            if (hedge.productType === 'forward' && hedge.currentMtm < 0) {
+            // Margin call check for forwards and futures
+            if ((hedge.productType === 'forward' || hedge.productType === 'future') && hedge.currentMtm < 0) {
                 const requiredMargin = Math.abs(hedge.currentMtm) * GAME_CONFIG.MARGIN_REQUIREMENT;
                 const additionalMargin = Math.max(0, requiredMargin - (hedge.marginPosted || 0));
                 if (additionalMargin > 0) {
@@ -184,11 +252,14 @@ class GameLoopController {
             details.push({
                 type: 'hedge',
                 underlying: hedge.underlying,
+                assetClass: hedge.assetClass,
                 productType: hedge.productType,
-                pnl: mtmChange,
+                // For settled hedges, show total settlement value; for active, show quarterly MTM change
+                pnl: maturesThisQ ? (hedge.currentMtm || 0) : mtmChange,
                 contractRate: hedge.contractRate,
                 currentRate,
-                status: hedge.status
+                status: hedge.status,
+                maturedThisQ: maturesThisQ
             });
         }
 
@@ -199,6 +270,28 @@ class GameLoopController {
             });
         }
 
+        // Compute horizon exposure P&L: total exposure value change across
+        // the full hedge horizon (quarterlyNotional * horizon * rate move %)
+        const policyHorizon = (policy && policy.hedgeHorizon) || 4;
+        const remainingQ = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
+        const horizon = Math.min(remainingQ, policyHorizon);
+        let horizonExposurePnL = 0;
+        if (hasBudgetRate) {
+            for (const exposure of state.exposures) {
+                const budgetRate = state.budgetRates[exposure.underlying] || 0;
+                const currentRate = state.currentRates[exposure.underlying] || budgetRate;
+                if (budgetRate === 0) continue;
+                const priceMoveRatio = (currentRate - budgetRate) / budgetRate;
+                const horizonNotional = (exposure.quarterlyNotional || 0) * horizon;
+                let pnl = exposure.direction === 'buy'
+                    ? -priceMoveRatio * horizonNotional
+                    : priceMoveRatio * horizonNotional;
+                // FX inversion: EUR-cross rates have inverse P&L relationship
+                if (exposure.type === 'fx') pnl = -pnl;
+                horizonExposurePnL += pnl;
+            }
+        }
+
         const netPnL = exposurePnL + hedgePnL;
 
         return {
@@ -207,6 +300,11 @@ class GameLoopController {
             quarterNum: state.currentQuarter,
             exposurePnL,
             hedgePnL,
+            settledHedgePnL,
+            unsettledHedgePnL,
+            horizonExposurePnL,
+            totalHedgeMtm,
+            horizon,
             netPnL,
             cashImpact,
             marginCallAmount,
@@ -215,26 +313,63 @@ class GameLoopController {
         };
     }
 
-    // Check if current hedge ratios comply with policy
-    // Uses total exposure (quarterly × remaining quarters) vs total hedge notional
+    // Check if current hedge ratios comply with policy (v2: horizon + tenor bands)
     checkPolicyCompliance() {
         const state = gameState.get();
         const policy = state.hedgingPolicy;
         if (!policy || policy.id === 'none') return true;
 
         const remainingQuarters = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
+        const horizon = Math.min(remainingQuarters, policy.hedgeHorizon || remainingQuarters);
 
         for (const exposure of state.exposures) {
-            const totalExposure = exposure.quarterlyNotional * remainingQuarters;
-            const hedgedAmount = state.hedgePortfolio
-                .filter(h => h.underlying === exposure.underlying && h.status === 'active')
+            if (policy.tenorBands && policy.tenorBands.length > 0) {
+                // Per-tenor compliance: check each tenor bucket individually
+                for (const band of policy.tenorBands) {
+                    if (band.tenor > horizon) continue;
+                    const tenorQuarter = state.totalQuartersPlayed + band.tenor;
+
+                    // Hedge notional maturing at this tenor for this underlying
+                    const hedgedAtTenor = state.hedgePortfolio
+                        .filter(h => h.underlying === exposure.underlying &&
+                                     h.status === 'active' &&
+                                     h.maturityQuarter === tenorQuarter)
+                        .reduce((sum, h) => sum + h.notional, 0);
+
+                    const tenorRatio = exposure.quarterlyNotional > 0
+                        ? hedgedAtTenor / exposure.quarterlyNotional
+                        : 0;
+
+                    if (tenorRatio < band.min || tenorRatio > band.max) {
+                        return false;
+                    }
+                }
+            } else {
+                // Flat compliance: aggregate ratio within horizon
+                const totalExposure = exposure.quarterlyNotional * horizon;
+                const hedgedAmount = state.hedgePortfolio
+                    .filter(h => h.underlying === exposure.underlying &&
+                                 h.status === 'active' &&
+                                 h.maturityQuarter <= state.totalQuartersPlayed + horizon)
+                    .reduce((sum, h) => sum + h.notional, 0);
+
+                const hedgeRatio = totalExposure > 0
+                    ? hedgedAmount / totalExposure
+                    : 0;
+
+                if (hedgeRatio < policy.minHedgeRatio || hedgeRatio > policy.maxHedgeRatio) {
+                    return false;
+                }
+            }
+
+            // Penalise hedges booked beyond the policy horizon
+            const beyondHorizon = state.hedgePortfolio
+                .filter(h => h.underlying === exposure.underlying &&
+                             h.status === 'active' &&
+                             h.maturityQuarter > state.totalQuartersPlayed + horizon)
                 .reduce((sum, h) => sum + h.notional, 0);
 
-            const hedgeRatio = totalExposure > 0
-                ? hedgedAmount / totalExposure
-                : 0;
-
-            if (hedgeRatio < policy.minHedgeRatio || hedgeRatio > policy.maxHedgeRatio) {
+            if (beyondHorizon > 0) {
                 return false;
             }
         }
@@ -262,6 +397,13 @@ class GameLoopController {
         // Clear event result now that board has seen it
         gameState.update({ lastEventResult: null });
         gameState.advanceQuarter();
+
+        // Set rates for any exposures that just unlocked (before budget rate reset)
+        this.initRatesForNewExposures();
+
+        // v2: Check if budget rates need resetting for this quarter
+        this.checkBudgetRateReset();
+
         const state = gameState.get();
 
         if (state.firedByBoard || state.burnedOut) {
@@ -294,21 +436,108 @@ class GameLoopController {
         this.setPhase(PHASE.GAMEOVER);
     }
 
-    // Get current hedge ratio for an exposure
-    // Compares total hedge notional across all tenors vs total remaining exposure
+    // Set market + budget rates for exposures that have just been unlocked
+    // (their underlyings won't have entries in currentRates/budgetRates yet)
+    initRatesForNewExposures() {
+        const state = gameState.get();
+        const rng = gameState.getRng();
+
+        // Placeholder rates — same table as SetupScreen.setMarketRates()
+        const placeholderRates = {
+            'EURUSD': 1.10, 'EURGBP': 0.86, 'EURBRL': 5.50, 'EURCHF': 0.96,
+            'EURJPY': 155, 'USDJPY': 140, 'GBPUSD': 1.27,
+            'BRENT': 75, 'NATGAS': 3.0, 'COPPER': 4.0, 'STEEL': 600,
+            'DAIRY': 18, 'WHEAT': 6.0, 'CORN': 4.5, 'GOLD': 1900, 'COFFEE': 150,
+            'EURIBOR': 0.035, 'SOFR': 0.05, 'SONIA': 0.05
+        };
+
+        const currentRates = { ...state.currentRates };
+        const previousRates = { ...state.previousRates };
+        const budgetRates = { ...state.budgetRates };
+        let changed = false;
+
+        for (const exp of state.exposures) {
+            if (currentRates[exp.underlying] && currentRates[exp.underlying] !== 0) continue;
+
+            // This underlying has no rate yet — set it from historical or placeholder
+            let baseRate = null;
+            if (marketEngine.isLoaded()) {
+                const year = state.startYear + state.currentYearOffset;
+                baseRate = marketEngine.getRate(exp.underlying, year, state.currentQuarter);
+            }
+            if (!baseRate) {
+                const placeholder = placeholderRates[exp.underlying] || 1.0;
+                baseRate = placeholder * (1 + rng.floatRange(-0.05, 0.05));
+            }
+
+            currentRates[exp.underlying] = baseRate;
+            previousRates[exp.underlying] = baseRate;
+
+            // Set budget rate with favourable spread
+            const spread = exp.budgetRateSpread || 0.02;
+            if (exp.direction === 'buy') {
+                budgetRates[exp.underlying] = baseRate * (1 - spread);
+            } else {
+                budgetRates[exp.underlying] = baseRate * (1 + spread);
+            }
+            changed = true;
+        }
+
+        if (changed) {
+            gameState.update({ currentRates, previousRates, budgetRates });
+        }
+    }
+
+    // v2: Check and apply budget rate reset based on policy budgetRateType
+    checkBudgetRateReset() {
+        const state = gameState.get();
+        const newRates = marketEngine.resetBudgetRates(state);
+        if (newRates !== null) {
+            // Merge new rates with existing (preserves rates for underlyings not in current exposures)
+            const merged = { ...state.budgetRates, ...newRates };
+            gameState.update({ budgetRates: merged });
+        }
+    }
+
+    // Get current hedge ratio for an exposure (v2: respects policy horizon)
+    // Compares total hedge notional within horizon vs total exposure within horizon
     getHedgeRatio(exposureUnderlying) {
         const state = gameState.get();
         const exposure = state.exposures.find(e => e.underlying === exposureUnderlying);
         if (!exposure || !exposure.quarterlyNotional) return 0;
 
+        const policy = state.hedgingPolicy;
         const remainingQuarters = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
-        const totalExposure = exposure.quarterlyNotional * remainingQuarters;
+        const horizon = policy && policy.hedgeHorizon
+            ? Math.min(remainingQuarters, policy.hedgeHorizon)
+            : remainingQuarters;
+
+        const totalExposure = exposure.quarterlyNotional * horizon;
+        const maxMaturity = state.totalQuartersPlayed + horizon;
 
         const totalHedged = state.hedgePortfolio
-            .filter(h => h.underlying === exposureUnderlying && h.status === 'active')
+            .filter(h => h.underlying === exposureUnderlying &&
+                         h.status === 'active' &&
+                         h.maturityQuarter <= maxMaturity)
             .reduce((sum, h) => sum + h.notional, 0);
 
-        return totalHedged / totalExposure;
+        return totalExposure > 0 ? totalHedged / totalExposure : 0;
+    }
+
+    // Get per-tenor hedge ratio for an exposure at a specific tenor bucket
+    getHedgeRatioAtTenor(exposureUnderlying, tenor) {
+        const state = gameState.get();
+        const exposure = state.exposures.find(e => e.underlying === exposureUnderlying);
+        if (!exposure || !exposure.quarterlyNotional) return 0;
+
+        const tenorQuarter = state.totalQuartersPlayed + tenor;
+        const hedgedAtTenor = state.hedgePortfolio
+            .filter(h => h.underlying === exposureUnderlying &&
+                         h.status === 'active' &&
+                         h.maturityQuarter === tenorQuarter)
+            .reduce((sum, h) => sum + h.notional, 0);
+
+        return exposure.quarterlyNotional > 0 ? hedgedAtTenor / exposure.quarterlyNotional : 0;
     }
 }
 

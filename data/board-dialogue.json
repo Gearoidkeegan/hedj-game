@@ -24,6 +24,21 @@
             "name": "Warren Buffett Type",
             "description": "Patient, values long-term thinking, hates speculation",
             "signature": "Risk comes from not knowing what you're doing."
+        },
+        "jobs": {
+            "name": "Steve Jobs Type",
+            "description": "Design obsessive, believes in simplicity, reality distortion field, won't let his own kids use the products",
+            "signature": "People don't know what they want until you show it to them."
+        },
+        "dorsey": {
+            "name": "Jack Dorsey Type",
+            "description": "Zen hippie CEO, obsessed with wellness, meditation, fasting, ice baths, and Bitcoin",
+            "signature": "I've been thinking about this during my morning meditation and 47-minute ice bath."
+        },
+        "ackman": {
+            "name": "Bill Ackman Type",
+            "description": "Extremely verbose, writes essay-length opinions on everything, high conviction activist investor, always has a thesis",
+            "signature": "Let me walk you through my thinking on this, because I believe the market is fundamentally mispricing our risk..."
         }
     },
 
@@ -105,6 +120,23 @@
         "poor_diversification": [
             "All your eggs in one basket? What if that bank goes under?",
             "Spread the risk! Have you learned nothing from 2008?"
+        ],
+        "tms_positive": [
+            "Finally investing in proper systems. About time.",
+            "If it helps us see the numbers clearer, I'll allow it."
+        ],
+        "tms_overspend": [
+            "We're a treasury, not a tech startup! Stop buying systems!",
+            "You're spending more on TMS than on actual hedging. Priorities!",
+            "How many modules do you NEED? This is getting ridiculous."
+        ],
+        "high_variance": [
+            "Our forecasts are all over the place. How can we hedge what we can't predict?",
+            "The business keeps missing its numbers. Sort it out or I will."
+        ],
+        "low_variance": [
+            "At least the forecasting is tight. One less thing to worry about.",
+            "Good visibility on the numbers. Now use it."
         ]
     },
 
@@ -165,6 +197,25 @@
             "A trade in the wrong direction is a serious operational failure.",
             "This should have been caught by our controls. I'm very concerned.",
             "We need a four-eyes check on every trade going forward."
+        ],
+        "tms_positive": [
+            "Good investment. Better data leads to better decisions.",
+            "The TMS will help us reconcile positions in real-time. I approve.",
+            "This should reduce our operational risk. Sensible spend."
+        ],
+        "tms_overspend": [
+            "The marginal benefit of each additional module is decreasing. The data shows it.",
+            "I've run the numbers. We've passed the point of diminishing returns on TMS.",
+            "The audit committee will question this level of systems spend."
+        ],
+        "high_variance": [
+            "Forecast accuracy is below acceptable thresholds. This undermines the entire hedging strategy.",
+            "With variance this high, our hedge ratios are essentially guesswork.",
+            "I've prepared a report on the forecast deviation. It's not encouraging."
+        ],
+        "low_variance": [
+            "Forecast accuracy is within tolerance. The TMS investment is paying off.",
+            "Good. Tight forecasts mean our hedge ratios are meaningful."
         ]
     },
 
@@ -213,6 +264,22 @@
         "trade_direction_error": [
             "Wait, you hedged the wrong way? How does that even happen?",
             "My team could have told you which way to hedge. Just ask us."
+        ],
+        "tms_positive": [
+            "If the TMS means I get better numbers from treasury, I'm all for it.",
+            "Finally, I might be able to plan my procurement without guessing."
+        ],
+        "tms_overspend": [
+            "That TMS budget could have bought us new equipment. Just saying.",
+            "How much are we spending on treasury systems vs. actual operations?"
+        ],
+        "high_variance": [
+            "My team keeps changing their forecasts. It makes planning impossible.",
+            "If the business can't predict its own volumes, what chance has treasury?"
+        ],
+        "low_variance": [
+            "The forecasts are actually matching reality now. That helps everyone.",
+            "Good. I can plan my supply chain with confidence."
         ]
     },
 
@@ -233,6 +300,11 @@
                 "WHY IS EVERYONE STANDING AROUND? THERE ARE EXPOSURES TO HEDGE!",
                 "I run a tight ship! A TIGHT SHIP! Why is the P&L loose?!",
                 "You've got until end of quarter to impress me. Clock's ticking!"
+            ],
+            "tms_comment": [
+                "WHY ARE WE BUYING COMPUTERS?! ARE WE AN IT COMPANY NOW?!",
+                "If this system doesn't IMMEDIATELY show me better numbers, you're done!",
+                "I DON'T CARE ABOUT MODULES! I CARE ABOUT RESULTS!"
             ]
         },
         "musk": {
@@ -251,6 +323,11 @@
                 "What if we vertically integrated our hedging? Just thinking out loud.",
                 "I've been up since 3am reviewing your hedge book. We need to talk.",
                 "I just renamed the treasury department. It's now called 'X-Treasury'."
+            ],
+            "tms_comment": [
+                "Why are we buying off-the-shelf? We should build our own TMS. From scratch. In a weekend.",
+                "I've seen the TMS code. It's terrible. I could write better treasury software in my sleep.",
+                "What if the TMS was also a social network? Just thinking out loud."
             ]
         },
         "oleary": {
@@ -269,6 +346,11 @@
                 "Why are we paying for options when we could just... not?",
                 "I've cut costs everywhere else. Treasury is next.",
                 "Have you considered hedging for free? Think about it."
+            ],
+            "tms_comment": [
+                "How much?! For SOFTWARE?! I got a plane for less!",
+                "Can we charge the TMS vendor for the privilege of being our supplier?",
+                "Every module costs money. Money that could be in MY pocket."
             ]
         },
         "dimon": {
@@ -287,6 +369,11 @@
                 "Show me the VaR report. The real one, not the sanitised version.",
                 "I've seen treasurers come and go. The good ones stay disciplined.",
                 "Don't confuse a good outcome with a good decision."
+            ],
+            "tms_comment": [
+                "Good. A banker who invests in infrastructure. I respect that.",
+                "The TMS won't save you from bad judgment, but it'll help with execution.",
+                "Every major bank runs on systems. It's about time our treasury did too."
             ]
         },
         "buffett": {
@@ -305,6 +392,83 @@
                 "Price is what you pay. Value is what you get. Remember that.",
                 "Risk comes from not knowing what you're doing. Do you know?",
                 "I'd rather have a treasury that's approximately right than precisely wrong."
+            ],
+            "tms_comment": [
+                "I've never needed a computer to tell me what I already know. But you do you.",
+                "If it helps you think more clearly, I suppose it's a reasonable investment.",
+                "Systems don't make decisions. People do. Don't forget that."
+            ]
+        },
+        "jobs": {
+            "big_loss": [
+                "This is unacceptable. Not because of the loss, but because it's inelegant. A beautiful hedge book doesn't lose money.",
+                "You know what the problem is? You're thinking about it wrong. The exposure isn't the product. The HEDGE is the product. And your product is ugly.",
+                "I told my kids they're not allowed to use our treasury system. Looking at these numbers, I was right.",
+                "Simplify. You've got too many positions, too many counterparties, too much complexity. Strip it back to its essence."
+            ],
+            "big_win": [
+                "See? Simplicity. One clear strategy, beautifully executed. That's what separates us from the noise.",
+                "This is what happens when you focus on making something insanely great instead of just adequate.",
+                "The people who are crazy enough to think they can change the P&L... are the ones who do."
+            ],
+            "general": [
+                "I've been thinking about our hedging strategy and I believe we need to reimagine it from the ground up. Start with the customer — the business — and work backwards.",
+                "Design isn't just how it looks. Design is how it works. And right now, this treasury desk isn't working the way I envisioned it.",
+                "I wouldn't let my own children use this hedge book. Think about what that means.",
+                "You're holding it wrong. The hedge book, I mean. Metaphorically."
+            ],
+            "tms_comment": [
+                "The TMS interface is hideous. But... the functionality is acceptable. Ship it, then we'll redesign it.",
+                "Why does treasury software always look like it was designed by accountants? Because it was. We need to think different.",
+                "My kids aren't allowed to use any TMS. Not because of the data. Because of the fonts."
+            ]
+        },
+        "dorsey": {
+            "big_loss": [
+                "I want everyone to take a deep breath with me. In... out... Now, about these losses. They're part of the journey.",
+                "During my 5am ice bath this morning, I reflected on impermanence. Gains are impermanent. Losses are impermanent. But our treasury policy endures.",
+                "Have we considered that the loss is actually a lesson the market is trying to teach us? I journaled about this at 4:30am.",
+                "I'm not worried. I spent 40 minutes in a sauna before this meeting and I've achieved total clarity. We need to accept the loss and align our chakras — I mean, our hedge ratios."
+            ],
+            "big_win": [
+                "Beautiful. This is what happens when we approach hedging with intention and mindfulness. Namaste.",
+                "I was fasting for 36 hours when I had the insight that our strategy was aligned with the market's energy. I was right.",
+                "Gratitude. That's what I'm feeling. Also, has anyone considered converting our reserves to Bitcoin?"
+            ],
+            "general": [
+                "I've been doing a 10-day silent meditation retreat — well, 3 days, I had to check my phone — and I have some thoughts on our FX exposure.",
+                "What if we approached hedging the way we approach wellness? Holistically. Mindfully. With intermittent fasting.",
+                "I walked barefoot to this board meeting. It helps me stay grounded. Speaking of grounding — how's our basis risk?",
+                "Before we review the numbers, I'd like us all to take a moment of silence. ... OK, that's enough. The P&L is what it is."
+            ],
+            "tms_comment": [
+                "The TMS should be open source. And decentralised. And somehow involve Bitcoin.",
+                "I don't use the TMS myself. I track my positions in a handwritten leather journal. But I support the team having one.",
+                "What if instead of buying TMS modules, we built our own on the blockchain? During a group ice bath. As a team-building exercise."
+            ]
+        },
+        "ackman": {
+            "big_loss": [
+                "Look, I want to be very clear about something. I've spent the last 72 hours analysing every single position in our hedge book, and I've written a 47-page memo that I'd like to share with the board. The key thesis — and I'll summarise here, though I encourage everyone to read the full document — is that this loss, while optically significant, actually represents a fundamental mispricing of our risk that the market will eventually correct. Let me walk you through the first 12 slides.",
+                "I've been thinking about this all week, and I've come to a very high-conviction view. The loss isn't the problem. The problem is that our hedging framework fails to account for approximately 14 structural factors that I've identified and documented in a letter I plan to publish on social media this afternoon. With the board's permission, of course.",
+                "Let me be direct. Actually, let me provide some context first. In 2004, I made a similar bet against a company — well, not similar exactly, but adjacent — and the initial mark-to-market was deeply negative. I was down for 18 months. Everyone said I was wrong. I wrote a 340-page presentation. And eventually, the market came around. My point is: patience.",
+                "This quarter's loss is, frankly, a vindication of everything I've been saying about our exposure framework for the past three board meetings. I have the minutes. I have the transcripts. I have a detailed timeline. If anyone would like to review my 28-page analysis..."
+            ],
+            "big_win": [
+                "I want to acknowledge the strong result this quarter, but more importantly, I want to explain WHY it's strong, because I don't think the numbers alone tell the full story. If you'll bear with me for about twenty minutes, I have a presentation that walks through the structural thesis behind our hedging approach, the macro backdrop, the positioning of our counterparties, and — this is the key part — why I believe we're only at the beginning of what could be a multi-quarter outperformance cycle. Slide one, please.",
+                "Excellent quarter. Now, I've prepared some thoughts — brief thoughts, maybe 15 pages — on how we can compound this advantage. The core argument, which I'll develop in detail, rests on three pillars. Actually, four. Let me start from the beginning.",
+                "This is what high-conviction hedging looks like. I said this at the last board meeting. And the one before that. I believe I also mentioned it in my letter to stakeholders, my social media post, and the conference panel I spoke at last Tuesday."
+            ],
+            "general": [
+                "I'd like to share some updated thinking on our hedging strategy. I've written a detailed memo — it's only about 35 pages, quite concise by my standards — that lays out a comprehensive framework for how we should be thinking about our exposure over the next 8 quarters. The executive summary alone is 6 pages, but I think it's important to read the full thing. I can wait while you pull it up.",
+                "A few observations. First — and I want to be precise here because precision matters — our hedge ratio is currently at a level that, while technically within policy, represents what I would characterise as a suboptimal equilibrium. I've modelled 14 alternative scenarios. Let me share my screen.",
+                "Before we move to the next agenda item, I have one more thing. Actually, several more things. I've been posting about our sector's FX dynamics online and the engagement has been extraordinary. The key insight — which I'll develop over the next few minutes, so please bear with me — is that the market is mispricing volatility in a way that creates a generational hedging opportunity.",
+                "I want to make a brief point. Well, not brief exactly. Comprehensive. I've prepared a letter — 22 pages, double-spaced — outlining my views on our treasury strategy. The thesis is simple, though the supporting evidence is necessarily detailed. I'll walk you through the highlights. Starting with macroeconomic conditions in 1971."
+            ],
+            "tms_comment": [
+                "I'm broadly supportive of the TMS investment. Let me explain why in detail. I've written a memo — short one, only 18 pages — that analyses the ROI of treasury management systems across 340 comparable companies. The data is conclusive, though I should note several important caveats that I'll enumerate beginning with caveat number one...",
+                "The TMS purchase raises an interesting strategic question that I've been thinking about extensively. I have a 12-slide deck. The core thesis is that technology investment in treasury functions, when properly calibrated — and I'll define 'properly calibrated' in a moment — generates alpha. Let me elaborate.",
+                "I support this. But I want to document my reasoning. I've drafted a position paper that I'd like to share with the board, the audit committee, and, with your permission, my social media followers."
             ]
         }
     }

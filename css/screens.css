@@ -247,6 +247,18 @@
     font-size: 7px;
 }
 
+/* ---- Quarter bar row structure ---- */
+.qbar-row1,
+.qbar-row2 {
+    display: contents;
+}
+
+.qbar-stat {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
 /* ---- DASHBOARD SCREEN ---- */
 .dashboard-screen {
     display: flex;
@@ -312,19 +324,32 @@
     min-width: 160px;
 }
 
-/* ---- Exposure row ---- */
+/* ---- Exposure row (v2: two-line layout) ---- */
 .exposure-row {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     padding: 6px 8px;
     border-bottom: 1px solid rgba(90, 90, 122, 0.2);
     font-family: var(--font-readable);
     font-size: 17px;
-    gap: 8px;
+    gap: 2px;
 }
 
 .exposure-row:hover {
     background: rgba(68, 204, 221, 0.05);
+}
+
+.exposure-row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.exposure-row-bottom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-left: 4px;
 }
 
 .exposure-type-badge {

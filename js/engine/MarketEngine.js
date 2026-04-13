@@ -197,6 +197,45 @@ class MarketEngineController {
     }
 
     /**
+     * Reset budget rates based on policy budgetRateType (v2).
+     * Called at the start of each quarter's DECISION phase.
+     *
+     * @param {object} state - Current game state
+     * @returns {object|null} New budget rates, or null if no reset needed
+     */
+    resetBudgetRates(state) {
+        const policy = state.hedgingPolicy;
+        if (!policy) return null;
+
+        const budgetRateType = policy.budgetRateType || 'fixed';
+
+        // 'none' = no budget rates at all
+        if (budgetRateType === 'none') {
+            return {};
+        }
+
+        // 'fixed' = never resets (set once at game start)
+        if (budgetRateType === 'fixed') {
+            return null;
+        }
+
+        const year = state.startYear + state.currentYearOffset;
+        const quarter = state.currentQuarter;
+
+        // 'quarterly' = reset every quarter
+        if (budgetRateType === 'quarterly') {
+            return this.getBudgetRates(state.exposures, year, quarter);
+        }
+
+        // 'annual' = reset at Q1 of each year only
+        if (budgetRateType === 'annual' && quarter === 1) {
+            return this.getBudgetRates(state.exposures, year, quarter);
+        }
+
+        return null; // No reset this quarter
+    }
+
+    /**
      * Get intra-quarter price ticks for the Bloomberg terminal.
      * Interpolates between two quarterly rates with realistic noise.
      * @param {string} underlying

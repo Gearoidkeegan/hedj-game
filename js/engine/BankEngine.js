@@ -115,7 +115,7 @@ class BankEngineController {
             return {
                 allowed: false,
                 reason: 'satisfaction_too_low',
-                detail: `Board satisfaction too low — need ≥${minSat}`
+                detail: `Requires satisfaction of at least ${minSat}% (currently ${state.boardSatisfaction || 0}%)`
             };
         }
 

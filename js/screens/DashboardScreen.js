@@ -7,8 +7,10 @@ import { gameLoop } from '../engine/GameLoop.js';
 import { marketEngine } from '../engine/MarketEngine.js';
 import { hedgingEngine } from '../engine/HedgingEngine.js';
 import { bankEngine } from '../engine/BankEngine.js';
+import { tmsEngine } from '../engine/TMSEngine.js';
 import { GAME_CONFIG } from '../utils/constants.js';
 import { formatCurrency, formatRate, formatPercent, formatQuarter, formatPnL, pnlClass } from '../utils/formatters.js';
+import { EraPopup } from '../ui/EraPopup.js';
 import { IsometricScene } from '../ui/IsometricScene.js';
 import { BloombergTerminal } from '../ui/BloombergTerminal.js';
 import { HedgeLadder } from '../ui/HedgeLadder.js';
@@ -47,25 +49,29 @@ export class DashboardScreen {
         this.el.innerHTML = `
             <!-- Quarter Bar -->
             <div class="quarter-bar">
-                <span class="company-name">${state.industry?.name || 'Company'}</span>
-                <span class="quarter-label">${quarterLabel}</span>
-                <div class="quarter-pips" id="quarter-pips"></div>
-                <span>
-                    <span class="pixel-text" style="font-size:8px;color:var(--text-secondary)">CASH</span>
-                    <span class="pixel-text" style="font-size:9px;color:${state.cashBalance >= state.startingCash * 0.2 ? 'var(--pnl-positive)' : 'var(--pnl-negative)'}">${formatCurrency(state.cashBalance, state.industry?.baseCurrency, true)}</span>
-                </span>
-                <span>
-                    <span class="pixel-text" style="font-size:8px;color:var(--text-secondary)">P&L</span>
-                    <span class="pixel-text ${pnlClass(state.cumulativePnL)}" style="font-size:9px">${formatPnL(state.cumulativePnL, state.industry?.baseCurrency)}</span>
-                </span>
-                <span>
-                    <span class="pixel-text" style="font-size:8px;color:var(--text-secondary)">BOARD SATISFACTION</span>
-                    <span class="pixel-text" style="font-size:9px;color:${state.boardSatisfaction >= 50 ? 'var(--satisfaction-high)' : state.boardSatisfaction >= 25 ? 'var(--satisfaction-mid)' : 'var(--satisfaction-low)'}">
-                        ${state.boardSatisfaction}%
+                <div class="qbar-row1">
+                    <span class="company-name">${state.industry?.name || 'Company'}</span>
+                    <span class="quarter-label">${quarterLabel}</span>
+                    <div class="quarter-pips" id="quarter-pips"></div>
+                </div>
+                <div class="qbar-row2">
+                    <span class="qbar-stat">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-secondary)">CASH</span>
+                        <span class="pixel-text" style="font-size:9px;color:${state.cashBalance >= state.startingCash * 0.2 ? 'var(--pnl-positive)' : 'var(--pnl-negative)'}">${formatCurrency(state.cashBalance, state.industry?.baseCurrency, true)}</span>
                     </span>
-                </span>
-                <span id="stress-face-slot"></span>
-                <span id="trade-count-badge" class="pixel-text" style="font-size:7px;color:var(--text-muted)"></span>
+                    <span class="qbar-stat">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-secondary)">P&L</span>
+                        <span class="pixel-text ${pnlClass(state.cumulativePnL)}" style="font-size:9px">${formatPnL(state.cumulativePnL, state.industry?.baseCurrency)}</span>
+                    </span>
+                    <span class="qbar-stat">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-secondary)">BOARD</span>
+                        <span id="qbar-satisfaction" class="pixel-text" style="font-size:9px;color:${state.boardSatisfaction >= 50 ? 'var(--satisfaction-high)' : state.boardSatisfaction >= 25 ? 'var(--satisfaction-mid)' : 'var(--satisfaction-low)'}">
+                            ${state.boardSatisfaction}%
+                        </span>
+                    </span>
+                    <span id="stress-face-slot"></span>
+                    <span id="trade-count-badge" class="pixel-text" style="font-size:7px;color:var(--text-muted)"></span>
+                </div>
             </div>
 
             <!-- Main area -->
@@ -75,14 +81,20 @@ export class DashboardScreen {
                     <!-- Isometric viewport with Bloomberg terminal overlay -->
                     <div class="isometric-viewport" id="iso-viewport" style="position:relative;">
                         <canvas id="iso-canvas" width="620" height="200"></canvas>
+                        <!-- Mobile Bloomberg overlay — rendered on top of isometric scene when quarter active -->
+                        <canvas id="bloomberg-canvas-mobile" width="620" height="150"
+                            style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;z-index:2;
+                            border-radius:2px;box-shadow:0 0 8px rgba(0,140,255,0.3), inset 0 0 2px rgba(0,140,255,0.2);"></canvas>
                     </div>
 
                     <!-- Tabs -->
-                    <div class="tab-bar">
+                    <div class="tab-bar" id="main-tab-bar">
                         <div class="tab active" data-tab="exposures">EXPOSURES</div>
                         <div class="tab" data-tab="market">MARKET</div>
                         <div class="tab" data-tab="portfolio">PORTFOLIO</div>
                         <div class="tab" data-tab="banks">BANKS</div>
+                        <div class="tab" data-tab="board-requests">REQUESTS</div>
+                        <div class="tab mobile-only-tab" data-tab="hedging">HEDGING</div>
                     </div>
 
                     <div class="tab-content active" data-tab-content="exposures" id="exposures-tab">
@@ -96,6 +108,9 @@ export class DashboardScreen {
                     </div>
                     <div class="tab-content" data-tab-content="banks" id="banks-tab">
                         <div class="panel-inset overflow-auto flex-1" id="banks-view"></div>
+                    </div>
+                    <div class="tab-content" data-tab-content="board-requests" id="board-requests-tab">
+                        <div class="panel-inset overflow-auto flex-1" id="board-requests-view"></div>
                     </div>
                 </div>
 
@@ -180,18 +195,34 @@ export class DashboardScreen {
         this.renderMarketView();
         this.renderPortfolio();
         this.renderBanksView();
+        this.renderBoardRequests();
         this.renderPolicy();
         this.drawIsometricScene();
         this.updateTradeCountBadge();
 
-        // Tab switching
+        // Tab switching (with mobile HEDGING tab support)
         this.el.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const tabId = tab.dataset.tab;
                 this.el.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                this.el.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
                 tab.classList.add('active');
-                this.el.querySelector(`[data-tab-content="${tabId}"]`).classList.add('active');
+
+                const dashLeft = this.el.querySelector('.dashboard-left');
+                const dashRight = this.el.querySelector('.dashboard-right');
+
+                if (tabId === 'hedging') {
+                    // Mobile: show hedging panel below viewport, hide tab content but keep viewport visible
+                    this.el.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                    dashLeft.classList.add('mobile-hedging-active');
+                    dashRight.classList.add('mobile-active');
+                } else {
+                    // Normal tab: show left content, hide hedging panel on mobile
+                    dashLeft.classList.remove('mobile-hedging-active');
+                    dashRight.classList.remove('mobile-active');
+                    this.el.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                    const target = this.el.querySelector(`[data-tab-content="${tabId}"]`);
+                    if (target) target.classList.add('active');
+                }
             });
         });
 
@@ -206,11 +237,30 @@ export class DashboardScreen {
         });
 
         // Execute hedge buttons are wired dynamically in renderBankExecuteButtons()
+
+        // Listen for exposure unlocks (fired when advanceQuarter() unlocks new exposures)
+        this._exposureUnlockHandler = (newExposures) => {
+            this.showExposureUnlockNotification(newExposures);
+            this.renderExposures();
+        };
+        gameState.on('exposuresUnlocked', this._exposureUnlockHandler);
+
+        // Check if exposures were just unlocked this quarter (show notification on first mount)
+        const state = gameState.get();
+        const justUnlocked = state.exposures.filter(exp => exp.unlockQuarter === state.totalQuartersPlayed);
+        if (justUnlocked.length > 0) {
+            setTimeout(() => this.showExposureUnlockNotification(justUnlocked), 500);
+        }
     }
 
     unmount() {
+        if (this._exposureUnlockHandler) {
+            gameState.off('exposuresUnlocked', this._exposureUnlockHandler);
+            this._exposureUnlockHandler = null;
+        }
         if (this.isoScene) { this.isoScene.stop(); this.isoScene = null; }
         if (this.bloombergTerminal) { this.bloombergTerminal.stop(); this.bloombergTerminal = null; }
+        if (this.mobileBloomberg) { this.mobileBloomberg.stop(); this.mobileBloomberg = null; }
         if (this.stressFace) { this.stressFace.stop(); this.stressFace = null; }
         if (this.priceRefreshTimer) { clearInterval(this.priceRefreshTimer); this.priceRefreshTimer = null; }
     }
@@ -271,9 +321,17 @@ export class DashboardScreen {
             if (exp) {
                 const budgetRate = state.budgetRates[underlying] || 0;
                 const decimals = exp.type === 'ir' ? 4 : (exp.underlying.includes('JPY') ? 2 : 4);
-                const rateClass = exp.direction === 'buy'
-                    ? (livePrice <= budgetRate ? 'pnl-positive' : 'pnl-negative')
-                    : (livePrice >= budgetRate ? 'pnl-positive' : 'pnl-negative');
+                const isFx = exp.type === 'fx';
+                let rateClass;
+                if (exp.direction === 'buy') {
+                    rateClass = isFx
+                        ? (livePrice >= budgetRate ? 'pnl-positive' : 'pnl-negative')
+                        : (livePrice <= budgetRate ? 'pnl-positive' : 'pnl-negative');
+                } else {
+                    rateClass = isFx
+                        ? (livePrice <= budgetRate ? 'pnl-positive' : 'pnl-negative')
+                        : (livePrice >= budgetRate ? 'pnl-positive' : 'pnl-negative');
+                }
                 const rateSpan = expRow.querySelector('.exposure-detail + span span');
                 if (rateSpan) {
                     rateSpan.className = rateClass;
@@ -350,8 +408,9 @@ export class DashboardScreen {
     }
 
     endQuarter() {
-        // Stop price refresh timer
+        // Stop price refresh timer and mobile Bloomberg
         if (this.priceRefreshTimer) { clearInterval(this.priceRefreshTimer); this.priceRefreshTimer = null; }
+        this.hideMobileBloomberg();
 
         // If quarter wasn't started with BEGIN, run it silently
         if (!this.quarterStarted) {
@@ -410,10 +469,14 @@ export class DashboardScreen {
             </div>
         `;
 
-        // Determine correct direction
-        // If exposure is "buy" (company needs to buy), hedge by buying forward = BUY
-        // If exposure is "sell" (company will receive), hedge by selling forward = SELL
-        const correctDirection = exposure.direction;
+        // Determine correct hedge direction
+        // FX (EUR-cross): hedge direction is OPPOSITE to exposure
+        //   - "sell" exposure (receive foreign ccy) → BUY hedge (buy EUR, sell foreign)
+        //   - "buy" exposure (pay foreign ccy) → SELL hedge (sell EUR, buy foreign)
+        // Commodities/IR: hedge direction matches exposure direction
+        const correctDirection = exposure.type === 'fx'
+            ? (exposure.direction === 'buy' ? 'sell' : 'buy')
+            : exposure.direction;
 
         container.querySelector('#btn-direction-buy').addEventListener('click', () => {
             if (correctDirection === 'buy' || correctDirection === 'pay') {
@@ -485,8 +548,19 @@ export class DashboardScreen {
     // -----------------------------------------------------------------------
 
     renderProductsForExposure(exposure) {
-        const products = hedgingEngine.getProductsForAssetClass(exposure.type);
+        let products = hedgingEngine.getProductsForAssetClass(exposure.type);
         const container = this.el.querySelector('#product-selector');
+
+        // Filter products by policy restrictions + board-approved expansions
+        const state = gameState.get();
+        const policy = state.hedgingPolicy;
+        if (policy && policy.requiredProducts && policy.requiredProducts.length > 0) {
+            const approved = state.approvedProducts || [];
+            const allowed = [...policy.requiredProducts, ...approved];
+            products = products.filter(p => allowed.some(a =>
+                p.type === a || p.type === 'future' && a === 'forward' || p.type === 'forward' && a === 'future'
+            ));
+        }
 
         let html = '';
         for (const product of products) {
@@ -704,13 +778,14 @@ export class DashboardScreen {
 
         // Compute existing coverage per tenor bucket from already-booked hedges
         // for this exposure. Tenor index = quarters from now until maturity.
+        // Only include hedges that mature AFTER the current quarter (tenor >= 1).
         const existingByTenor = {};
         const quarterly = exposure.quarterlyNotional || 0;
         for (const h of state.hedgePortfolio || []) {
             if (h.status !== 'active') continue;
             if (h.underlying !== exposure.underlying) continue;
-            const tenor = Math.max(1, (h.maturityQuarter || 0) - state.totalQuartersPlayed);
-            if (tenor < 1 || tenor > 8) continue;
+            const tenor = (h.maturityQuarter || 0) - state.totalQuartersPlayed;
+            if (tenor < 1 || tenor > 8) continue; // skip matured/past hedges and those beyond horizon
             const ratio = quarterly > 0 ? h.notional / quarterly : 0;
             existingByTenor[tenor] = (existingByTenor[tenor] || 0) + ratio;
         }
@@ -869,6 +944,15 @@ export class DashboardScreen {
         this.selectExposure(exp.underlying);
     }
 
+    updateQuarterBarSatisfaction() {
+        const state = gameState.get();
+        const el = this.el.querySelector('#qbar-satisfaction');
+        if (!el) return;
+        const sat = state.boardSatisfaction;
+        el.textContent = `${sat}%`;
+        el.style.color = sat >= 50 ? 'var(--satisfaction-high)' : sat >= 25 ? 'var(--satisfaction-mid)' : 'var(--satisfaction-low)';
+    }
+
     updateTradeCountBadge() {
         const badge = this.el.querySelector('#trade-count-badge');
         if (badge) {
@@ -910,27 +994,65 @@ export class DashboardScreen {
             return;
         }
 
+        const policy = state.hedgingPolicy;
+        const remainingQuarters = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
+        const horizon = policy && policy.hedgeHorizon
+            ? Math.min(remainingQuarters, policy.hedgeHorizon)
+            : remainingQuarters;
+        const baseCcy = state.industry?.baseCurrency || '';
+
         let html = '';
         for (const exp of state.exposures) {
             const currentRate = state.currentRates[exp.underlying] || 0;
             const budgetRate = state.budgetRates[exp.underlying] || 0;
             const hedgeRatio = gameLoop.getHedgeRatio(exp.underlying);
-            const rateClass = exp.direction === 'buy'
-                ? (currentRate <= budgetRate ? 'pnl-positive' : 'pnl-negative')
-                : (currentRate >= budgetRate ? 'pnl-positive' : 'pnl-negative');
+            const hasBudget = policy && policy.budgetRateType !== 'none' && budgetRate > 0;
+            // Rate colour: green if move is favourable, red if adverse.
+            // FX EUR-cross: inverted relationship (higher rate = stronger EUR = bad for sell/good for buy).
+            let rateClass = '';
+            if (hasBudget) {
+                const isFx = exp.type === 'fx';
+                if (exp.direction === 'buy') {
+                    rateClass = isFx
+                        ? (currentRate >= budgetRate ? 'pnl-positive' : 'pnl-negative')
+                        : (currentRate <= budgetRate ? 'pnl-positive' : 'pnl-negative');
+                } else {
+                    rateClass = isFx
+                        ? (currentRate <= budgetRate ? 'pnl-positive' : 'pnl-negative')
+                        : (currentRate >= budgetRate ? 'pnl-positive' : 'pnl-negative');
+                }
+            }
             const decimals = exp.type === 'ir' ? 4 : (exp.underlying.includes('JPY') ? 2 : 4);
+
+            // Calculate hedged notional within horizon
+            const maxMaturity = state.totalQuartersPlayed + horizon;
+            const hedgedNotional = state.hedgePortfolio
+                .filter(h => h.underlying === exp.underlying && h.status === 'active' && h.maturityQuarter <= maxMaturity)
+                .reduce((sum, h) => sum + h.notional, 0);
+
+            const hrColor = hedgeRatio >= 0.5 ? 'var(--pnl-positive)' : hedgeRatio > 0.1 ? 'var(--gold)' : 'var(--text-muted)';
 
             html += `
                 <div class="exposure-row" data-underlying="${exp.underlying}" style="cursor:pointer">
-                    <span class="exposure-type-badge ${exp.type}">${exp.type}</span>
-                    <span class="exposure-underlying">${exp.underlying}</span>
-                    <span class="exposure-detail">${exp.description}</span>
-                    <span class="readable-text" style="min-width:70px;text-align:right">
-                        <span class="${rateClass}">${formatRate(currentRate, decimals, exp.type)}</span>
-                    </span>
-                    <span class="exposure-hedge-ratio">
-                        <span class="pixel-text" style="font-size:8px;color:${hedgeRatio >= 0.3 ? 'var(--pnl-positive)' : 'var(--text-muted)'}">${formatPercent(hedgeRatio, 0)}</span>
-                    </span>
+                    <div class="exposure-row-top">
+                        <span class="exposure-type-badge ${exp.type}">${exp.type}</span>
+                        <span class="exposure-underlying">${exp.underlying}</span>
+                        <span class="exposure-detail">${exp.description}</span>
+                        <span class="readable-text" style="min-width:60px;text-align:right">
+                            <span class="${rateClass}">${formatRate(currentRate, decimals, exp.type)}</span>
+                        </span>
+                    </div>
+                    <div class="exposure-row-bottom">
+                        <span class="pixel-text" style="font-size:7px;color:var(--text-muted)">
+                            Forecast: ${formatCurrency(exp.quarterlyNotional, '', true)}/qtr
+                        </span>
+                        <span class="pixel-text" style="font-size:7px;color:var(--cyan)">
+                            Hedged: ${formatCurrency(hedgedNotional, '', true)}
+                        </span>
+                        <span class="pixel-text" style="font-size:8px;color:${hrColor}">
+                            ${formatPercent(hedgeRatio, 0)}
+                        </span>
+                    </div>
                 </div>
             `;
         }
@@ -940,10 +1062,148 @@ export class DashboardScreen {
         container.querySelectorAll('.exposure-row').forEach(row => {
             row.addEventListener('click', () => {
                 const underlying = row.dataset.underlying;
-                this.selectExposure(underlying);
                 container.querySelectorAll('.exposure-row').forEach(r => r.style.background = '');
                 row.style.background = 'rgba(68, 204, 221, 0.1)';
+
+                // On mobile: show exposure detail modal instead of directly selecting
+                if (window.innerWidth <= 768) {
+                    this.showMobileExposureDetail(underlying);
+                } else {
+                    this.selectExposure(underlying);
+                }
             });
+        });
+    }
+
+    /**
+     * Mobile: full-screen exposure detail popup with hedge info and action button.
+     */
+    showMobileExposureDetail(underlying) {
+        const state = gameState.get();
+        const exp = state.exposures.find(e => e.underlying === underlying);
+        if (!exp) return;
+
+        const policy = state.hedgingPolicy;
+        const remainingQuarters = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
+        const horizon = policy && policy.hedgeHorizon
+            ? Math.min(remainingQuarters, policy.hedgeHorizon)
+            : remainingQuarters;
+        const maxMaturity = state.totalQuartersPlayed + horizon;
+
+        const currentRate = state.currentRates[exp.underlying] || 0;
+        const budgetRate = state.budgetRates[exp.underlying] || 0;
+        const hasBudget = policy && policy.budgetRateType !== 'none' && budgetRate > 0;
+        const decimals = exp.type === 'ir' ? 4 : (exp.underlying.includes('JPY') ? 2 : 4);
+
+        // Per-tenor breakdown
+        const hedgesByTenor = {};
+        for (const h of state.hedgePortfolio.filter(h => h.underlying === exp.underlying && h.status === 'active')) {
+            const tenor = Math.max(1, h.maturityQuarter - state.totalQuartersPlayed);
+            if (!hedgesByTenor[tenor]) hedgesByTenor[tenor] = [];
+            hedgesByTenor[tenor].push(h);
+        }
+
+        let tenorHtml = '';
+        for (let t = 1; t <= horizon; t++) {
+            const hedges = hedgesByTenor[t] || [];
+            const hedgedNotional = hedges.reduce((s, h) => s + h.notional, 0);
+            const ratio = exp.quarterlyNotional > 0 ? hedgedNotional / exp.quarterlyNotional : 0;
+
+            // Policy band for this tenor
+            let bandMin = policy?.minHedgeRatio || 0;
+            let bandMax = policy?.maxHedgeRatio || 1;
+            if (policy?.tenorBands) {
+                const band = policy.tenorBands.find(b => b.tenor === t);
+                if (band) { bandMin = band.min; bandMax = band.max; }
+            }
+            const inRange = ratio >= bandMin && ratio <= bandMax;
+            const color = inRange ? 'var(--pnl-positive)' : ratio === 0 ? 'var(--text-muted)' : 'var(--pnl-negative)';
+
+            tenorHtml += `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border-inner);">
+                    <span class="pixel-text" style="font-size:8px;color:var(--text-secondary);">Q+${t}</span>
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">${formatPercent(bandMin, 0)}-${formatPercent(bandMax, 0)}</span>
+                    <span class="pixel-text" style="font-size:8px;color:${color};">${formatPercent(ratio, 0)}</span>
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">${formatCurrency(hedgedNotional, '', true)}</span>
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">${hedges.length} trade${hedges.length !== 1 ? 's' : ''}</span>
+                </div>
+            `;
+        }
+
+        const totalHedged = state.hedgePortfolio
+            .filter(h => h.underlying === exp.underlying && h.status === 'active' && h.maturityQuarter <= maxMaturity)
+            .reduce((s, h) => s + h.notional, 0);
+        const hedgeRatio = gameLoop.getHedgeRatio(exp.underlying);
+        const hrColor = hedgeRatio >= 0.5 ? 'var(--pnl-positive)' : hedgeRatio > 0.1 ? 'var(--gold)' : 'var(--text-muted)';
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.style.cssText = 'align-items:stretch;';
+        overlay.innerHTML = `
+            <div class="exposure-detail-modal">
+                <div class="modal-header">
+                    <span>${exp.underlying} — ${exp.type.toUpperCase()}</span>
+                    <button class="modal-close" id="close-exp-detail">X</button>
+                </div>
+                <div class="modal-body" style="overflow-y:auto;">
+                    <div class="readable-text" style="font-size:15px;color:var(--text-primary);margin-bottom:8px;">
+                        ${exp.description}
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted);">DIRECTION</span>
+                        <span class="pixel-text" style="font-size:9px;color:var(--gold);">${exp.direction.toUpperCase()}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted);">FORECAST</span>
+                        <span class="pixel-text" style="font-size:9px;color:var(--text-primary);">${formatCurrency(exp.quarterlyNotional, '', true)}/qtr</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted);">CURRENT RATE</span>
+                        <span class="pixel-text" style="font-size:9px;color:var(--text-primary);">${formatRate(currentRate, decimals, exp.type)}</span>
+                    </div>
+                    ${hasBudget ? `
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted);">BUDGET RATE</span>
+                        <span class="pixel-text" style="font-size:9px;color:var(--text-secondary);">${formatRate(budgetRate, decimals, exp.type)}</span>
+                    </div>
+                    ` : ''}
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted);">TOTAL HEDGED</span>
+                        <span class="pixel-text" style="font-size:9px;color:var(--cyan);">${formatCurrency(totalHedged, '', true)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted);">HEDGE RATIO</span>
+                        <span class="pixel-text" style="font-size:10px;color:${hrColor};">${formatPercent(hedgeRatio, 0)}</span>
+                    </div>
+
+                    <div class="pixel-text" style="font-size:8px;color:var(--gold);margin-bottom:4px;">COVERAGE BY TENOR (${horizon}Q HORIZON)</div>
+                    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border-outer);">
+                        <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">TENOR</span>
+                        <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">REQUIRED</span>
+                        <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">ACTUAL</span>
+                        <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">NOTIONAL</span>
+                        <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">TRADES</span>
+                    </div>
+                    ${tenorHtml}
+                </div>
+                <div style="padding:8px;border-top:1px solid var(--border);display:flex;gap:8px;">
+                    <button class="btn" id="btn-exp-hedge" style="flex:1;">HEDGE THIS EXPOSURE</button>
+                    <button class="btn" id="btn-exp-close" style="flex:1;">CLOSE</button>
+                </div>
+            </div>
+        `;
+
+        const viewport = document.getElementById('game-viewport');
+        viewport.appendChild(overlay);
+
+        overlay.querySelector('#close-exp-detail').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('#btn-exp-close').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('#btn-exp-hedge').addEventListener('click', () => {
+            overlay.remove();
+            // Select this exposure in the hedging panel, then switch to HEDGING tab
+            this.selectExposure(underlying);
+            const hedgingTab = this.el.querySelector('.tab[data-tab="hedging"]');
+            if (hedgingTab) hedgingTab.click();
         });
     }
 
@@ -965,11 +1225,16 @@ export class DashboardScreen {
         this.el.querySelector('#hedge-ladder-container').style.display = 'none';
         this.el.querySelector('#trade-execution').style.display = 'none';
 
-        // Calculate total exposure and total hedged across all remaining quarters
+        // Calculate total exposure and total hedged within policy horizon
+        const policy = state.hedgingPolicy;
         const remainingQuarters = Math.max(1, state.maxQuarters - state.totalQuartersPlayed);
-        const totalExposure = exp.quarterlyNotional * remainingQuarters;
+        const horizon = policy && policy.hedgeHorizon
+            ? Math.min(remainingQuarters, policy.hedgeHorizon)
+            : remainingQuarters;
+        const totalExposure = exp.quarterlyNotional * horizon;
+        const maxMaturity = state.totalQuartersPlayed + horizon;
         const totalHedged = state.hedgePortfolio
-            .filter(h => h.underlying === exp.underlying && h.status === 'active')
+            .filter(h => h.underlying === exp.underlying && h.status === 'active' && h.maturityQuarter <= maxMaturity)
             .reduce((sum, h) => sum + h.notional, 0);
         const totalUnhedged = Math.max(0, totalExposure - totalHedged);
 
@@ -988,8 +1253,8 @@ export class DashboardScreen {
             </div>
             <div class="readable-text" style="font-size:15px;margin-top:4px;">${exp.description}</div>
             <div style="display:flex;justify-content:space-between;margin-top:6px;">
-                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">Quarterly: ${formatCurrency(exp.quarterlyNotional, '', true)}</span>
-                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">${remainingQuarters}Q remaining</span>
+                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">Forecast: ${formatCurrency(exp.quarterlyNotional, '', true)}/qtr</span>
+                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">${horizon}Q horizon</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-top:4px;">
                 <span class="readable-text" style="font-size:14px;color:var(--text-secondary)">Total exposure: ${formatCurrency(totalExposure, '', true)}</span>
@@ -1066,7 +1331,7 @@ export class DashboardScreen {
                     <td>${hedge.underlying}</td>
                     <td>${formatCurrency(hedge.notional, '', true)}</td>
                     <td>${formatRate(hedge.contractRate, 4, hedge.assetClass)}</td>
-                    <td class="${pnlClass(mtm)}">${formatPnL(mtm)}</td>
+                    <td class="${pnlClass(mtm)}">${formatPnL(mtm, state.industry?.baseCurrency)}</td>
                     <td style="color:var(--text-muted);font-size:12px;">${bank?.shortName || '—'}</td>
                 </tr>`;
             }
@@ -1076,7 +1341,7 @@ export class DashboardScreen {
         // Total summary
         html += `<div style="text-align:right;padding:4px;border-top:1px solid var(--border);">
             <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">TOTAL HEDGES: ${activeHedges.length}</span>
-            <span class="pixel-text ${pnlClass(totalMtm)}" style="font-size:8px;margin-left:8px;">MTM: ${formatPnL(totalMtm)}</span>
+            <span class="pixel-text ${pnlClass(totalMtm)}" style="font-size:8px;margin-left:8px;">MTM: ${formatPnL(totalMtm, state.industry?.baseCurrency)}</span>
         </div>`;
 
         container.innerHTML = html;
@@ -1158,8 +1423,277 @@ export class DashboardScreen {
         } else {
             this.app.showToast(result.message, 'error');
         }
+        this.updateQuarterBarSatisfaction();
         this.renderBanksView();
         this.renderBankExecuteButtons();
+    }
+
+    showExposureUnlockNotification(newExposures) {
+        if (!newExposures || newExposures.length === 0) return;
+
+        const state = gameState.get();
+
+        // Determine sender and message based on exposure types
+        const expSummary = newExposures.map(exp => {
+            const typeLabel = exp.type === 'fx' ? 'FX' : exp.type === 'ir' ? 'Interest Rate' : 'Commodity';
+            return `<strong>${exp.underlying}</strong> — ${exp.description} (${typeLabel}, ${formatCurrency(exp.quarterlyNotional, '', true)}/qtr)`;
+        }).join('<br>');
+
+        // Determine sender based on exposure types
+        const hasRevenue = newExposures.some(e => e.direction === 'sell');
+        const hasCost = newExposures.some(e => e.direction === 'buy' || e.direction === 'pay');
+        const hasIR = newExposures.some(e => e.type === 'ir');
+
+        let from = 'Operations Team';
+        let category = 'operations';
+        if (hasIR) {
+            from = 'CFO — Finance';
+            category = 'finance';
+        } else if (hasRevenue && !hasCost) {
+            from = 'Commercial Team';
+            category = 'commercial';
+        } else if (hasCost && !hasRevenue) {
+            from = 'Procurement';
+            category = 'procurement';
+        }
+
+        const title = newExposures.length === 1
+            ? `New Exposure: ${newExposures[0].underlying}`
+            : `${newExposures.length} New Exposures Added`;
+
+        let bodyText = '';
+        if (hasIR) {
+            bodyText = `The revolving credit facility is now active. You will need to manage the floating rate exposure on the company's debt.<br><br>${expSummary}`;
+        } else if (hasRevenue) {
+            bodyText = `New revenue streams have come online. These exposures now require hedging attention.<br><br>${expSummary}`;
+        } else {
+            bodyText = `New procurement contracts have been finalised. The following exposures are now active and require hedging coverage.<br><br>${expSummary}`;
+        }
+
+        bodyText += `<br><br><em>Please review and adjust your hedging programme accordingly.</em>`;
+
+        const popupHtml = EraPopup.wrap({
+            title,
+            from,
+            body: bodyText,
+            category
+        });
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal" style="width:95vw;max-width:520px;">
+                ${popupHtml}
+                <div style="text-align:center;padding:8px;">
+                    <button class="btn btn-gold" id="btn-dismiss-unlock">ACKNOWLEDGED</button>
+                </div>
+            </div>
+        `;
+
+        const viewport = document.getElementById('game-viewport');
+        viewport.appendChild(overlay);
+
+        overlay.querySelector('#btn-dismiss-unlock').addEventListener('click', () => {
+            overlay.remove();
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+    }
+
+    renderBoardRequests() {
+        const container = this.el.querySelector('#board-requests-view');
+        if (!container) return;
+
+        const state = gameState.get();
+        const policy = state.hedgingPolicy;
+        let html = '';
+
+        // --- TMS Modules ---
+        const tms = tmsEngine.getStatus();
+        const progressPct = Math.round((tms.moduleCount / tms.maxModules) * 100);
+        const variancePct = Math.round(tms.varianceReduction * 100);
+
+        html += `
+            <div style="padding:8px;border-bottom:1px solid var(--border-inner);">
+                <div class="pixel-text" style="font-size:8px;color:var(--gold);margin-bottom:6px;">TREASURY MANAGEMENT SYSTEM</div>
+                <div class="readable-text" style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">
+                    Improve forecast accuracy by investing in TMS modules. Each module reduces forecast variance by 5%.
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-muted);min-width:50px;">MODULES</span>
+                    <div style="flex:1;height:12px;background:var(--bg-input);border:1px solid var(--border-inner);border-radius:2px;overflow:hidden;">
+                        <div style="height:100%;width:${progressPct}%;background:var(--cyan);transition:width 0.3s;"></div>
+                    </div>
+                    <span class="pixel-text" style="font-size:8px;color:var(--cyan);min-width:30px;text-align:right;">${tms.moduleCount}/${tms.maxModules}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">VARIANCE REDUCTION: ${variancePct}%</span>
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-muted);">TOTAL SPENT: ${formatCurrency(tms.totalCost, '', true)}</span>
+                </div>
+                <button class="btn" id="btn-buy-tms" style="width:100%;font-size:10px;padding:6px;" ${!tms.canBuy ? 'disabled style="width:100%;font-size:10px;padding:6px;opacity:0.4;cursor:not-allowed;"' : ''}>
+                    INSTALL MODULE — ${formatCurrency(tms.moduleCost, '', true)}
+                </button>
+                ${!tms.canBuy && tms.moduleCount >= tms.maxModules ? '<div class="pixel-text" style="font-size:7px;color:var(--pnl-positive);text-align:center;margin-top:3px;">All modules installed</div>' : ''}
+                ${!tms.canBuy && tms.moduleCount < tms.maxModules ? '<div class="pixel-text" style="font-size:7px;color:var(--pnl-negative);text-align:center;margin-top:3px;">Insufficient cash</div>' : ''}
+            </div>
+        `;
+
+        // --- Bank Counterparty Onboarding ---
+        const bankGate = bankEngine.canRequest('new_bank', state);
+        const nextCost = 3 + Math.min(5, bankEngine.limitRequests);
+
+        html += `
+            <div style="padding:8px;border-bottom:1px solid var(--border-inner);">
+                <div class="pixel-text" style="font-size:8px;color:var(--gold);margin-bottom:6px;">ADD BANK COUNTERPARTY</div>
+                <div class="readable-text" style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">
+                    Request board approval to onboard a new bank. More banks = better pricing & diversification.
+                </div>
+                <div class="readable-text" style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">
+                    Current banks: ${bankEngine.getActiveBanks().length} | Satisfaction cost: ~${nextCost}
+                </div>
+                <button class="btn" id="btn-req-bank" style="width:100%;font-size:10px;padding:6px;" ${!bankGate.allowed ? 'disabled style="width:100%;font-size:10px;padding:6px;opacity:0.4;cursor:not-allowed;"' : ''}>
+                    REQUEST ONBOARDING
+                </button>
+                ${!bankGate.allowed ? `<div class="pixel-text" style="font-size:7px;color:var(--pnl-negative);text-align:center;margin-top:3px;">${bankGate.detail}</div>` : ''}
+            </div>
+        `;
+
+        // --- Increase Bank Limits ---
+        const limitGate = bankEngine.canRequest('increase_limit', state);
+        const bankSummary = bankEngine.getSummary();
+        const avgUtil = bankSummary.length > 0
+            ? Math.round(bankSummary.reduce((s, b) => s + b.utilization, 0) / bankSummary.length * 100)
+            : 0;
+
+        html += `
+            <div style="padding:8px;border-bottom:1px solid var(--border-inner);">
+                <div class="pixel-text" style="font-size:8px;color:var(--gold);margin-bottom:6px;">INCREASE BANK LIMITS</div>
+                <div class="readable-text" style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">
+                    Request the board to increase credit limits across all counterparties by 25%.
+                </div>
+                <div class="readable-text" style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">
+                    Avg utilisation: ${avgUtil}% | Satisfaction cost: ~${nextCost}
+                </div>
+                <button class="btn" id="btn-req-limit" style="width:100%;font-size:10px;padding:6px;" ${!limitGate.allowed ? 'disabled style="width:100%;font-size:10px;padding:6px;opacity:0.4;cursor:not-allowed;"' : ''}>
+                    REQUEST LIMIT INCREASE
+                </button>
+                ${!limitGate.allowed ? `<div class="pixel-text" style="font-size:7px;color:var(--pnl-negative);text-align:center;margin-top:3px;">${limitGate.detail}</div>` : ''}
+            </div>
+        `;
+
+        // --- Product Expansion (only when policy allows) ---
+        if (policy && policy.productExpansionAllowed) {
+            const approvedProducts = state.approvedProducts || [];
+            const allProductTypes = ['option', 'swap', 'cap'];
+            const requiredProducts = policy.requiredProducts || [];
+            // Products that could be requested (not already required or approved)
+            const requestable = allProductTypes.filter(p =>
+                !requiredProducts.includes(p) &&
+                !requiredProducts.includes(p === 'cap' ? 'cap' : p) &&
+                !approvedProducts.includes(p)
+            );
+            // Also handle forward/future equivalences
+            const alreadyAvailable = [...requiredProducts, ...approvedProducts];
+
+            html += `
+                <div style="padding:8px;">
+                    <div class="pixel-text" style="font-size:8px;color:var(--gold);margin-bottom:6px;">REQUEST PRODUCT EXPANSION</div>
+                    <div class="readable-text" style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">
+                        Your policy restricts product use. Request board approval for additional instruments.
+                    </div>
+            `;
+
+            if (approvedProducts.length > 0) {
+                html += `<div class="pixel-text" style="font-size:7px;color:var(--pnl-positive);margin-bottom:4px;">APPROVED: ${approvedProducts.join(', ').toUpperCase()}</div>`;
+            }
+
+            if (requestable.length > 0) {
+                for (const prod of requestable) {
+                    const prodName = prod === 'option' ? 'Options' : prod === 'swap' ? 'Swaps' : 'IR Caps';
+                    html += `
+                        <button class="btn btn-product-request" data-product="${prod}" style="width:100%;font-size:10px;padding:5px;margin-bottom:4px;">
+                            REQUEST ${prodName.toUpperCase()}
+                        </button>
+                    `;
+                }
+            } else {
+                html += `<div class="pixel-text" style="font-size:7px;color:var(--text-muted);text-align:center;">All available products approved</div>`;
+            }
+
+            html += `</div>`;
+        }
+
+        container.innerHTML = html;
+
+        // --- Wire up TMS button ---
+        const btnTms = container.querySelector('#btn-buy-tms');
+        if (btnTms && tms.canBuy) {
+            btnTms.addEventListener('click', () => {
+                const result = tmsEngine.purchase();
+                if (result.success) {
+                    const msg = result.boardReaction === 'positive'
+                        ? `TMS module ${result.moduleCount} installed — board impressed!`
+                        : result.boardReaction === 'negative'
+                        ? `TMS module ${result.moduleCount} installed — board concerned about spending`
+                        : `TMS module ${result.moduleCount} installed`;
+                    const type = result.boardReaction === 'negative' ? 'warning' : 'success';
+                    this.app.showToast(msg, type);
+                    soundFX?.click?.();
+                    if (result.boardReaction === 'negative') {
+                        gameState.adjustSatisfaction(-3);
+                    }
+                } else {
+                    this.app.showToast(result.boardReaction, 'error');
+                }
+                this.updateQuarterBarSatisfaction();
+                this.renderBoardRequests();
+            });
+        }
+
+        // --- Wire up bank request buttons ---
+        const btnReqBank = container.querySelector('#btn-req-bank');
+        if (btnReqBank && bankGate.allowed) {
+            btnReqBank.addEventListener('click', () => {
+                this.handleBankRequest('new_bank');
+                this.renderBoardRequests();
+            });
+        }
+        const btnReqLimit = container.querySelector('#btn-req-limit');
+        if (btnReqLimit && limitGate.allowed) {
+            btnReqLimit.addEventListener('click', () => {
+                this.handleBankRequest('increase_limit');
+                this.renderBoardRequests();
+            });
+        }
+
+        // --- Wire up product expansion buttons ---
+        container.querySelectorAll('.btn-product-request').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const product = btn.dataset.product;
+                this.handleProductExpansionRequest(product);
+            });
+        });
+    }
+
+    handleProductExpansionRequest(product) {
+        const state = gameState.get();
+        const satisfaction = state.boardSatisfaction || 0;
+
+        // Board approval depends on satisfaction level
+        if (satisfaction < 40) {
+            this.app.showToast('Board satisfaction too low to approve new products (need ≥40)', 'error');
+            return;
+        }
+
+        const prodName = product === 'option' ? 'Options' : product === 'swap' ? 'Swaps' : 'IR Caps';
+        const approved = [...(state.approvedProducts || []), product];
+        gameState.update({ approvedProducts: approved });
+        gameState.adjustSatisfaction(-5);
+        soundFX?.click?.();
+        this.app.showToast(`${prodName} approved by the board! (-5 satisfaction)`, 'success');
+        this.updateQuarterBarSatisfaction();
+        this.renderBoardRequests();
     }
 
     renderPolicy() {
@@ -1193,10 +1727,58 @@ export class DashboardScreen {
             ? policy.rules.map(r => `<li style="margin-bottom:4px;">${r}</li>`).join('')
             : '<li>No specific rules — full discretion</li>';
 
+        // Build per-tenor compliance table if policy has tenor bands
+        let tenorHtml = '';
+        if (policy.tenorBands && policy.tenorBands.length > 0) {
+            tenorHtml += `<div class="pixel-text" style="font-size:8px;color:var(--text-secondary);margin:12px 0 4px;">TENOR COMPLIANCE</div>`;
+            tenorHtml += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+            tenorHtml += '<tr style="border-bottom:1px solid var(--border-inner);"><th class="pixel-text" style="font-size:7px;text-align:left;padding:3px;color:var(--text-muted);">TENOR</th><th class="pixel-text" style="font-size:7px;text-align:center;padding:3px;color:var(--text-muted);">REQUIRED</th>';
+            // One column per exposure
+            for (const exp of state.exposures) {
+                tenorHtml += `<th class="pixel-text" style="font-size:7px;text-align:center;padding:3px;color:var(--text-muted);">${exp.underlying}</th>`;
+            }
+            tenorHtml += '</tr>';
+
+            for (const band of policy.tenorBands) {
+                tenorHtml += `<tr style="border-bottom:1px solid var(--border-inner);">`;
+                tenorHtml += `<td class="pixel-text" style="font-size:7px;padding:3px;color:var(--text-secondary);">Q+${band.tenor}</td>`;
+                tenorHtml += `<td class="pixel-text" style="font-size:7px;text-align:center;padding:3px;color:var(--cyan);">${formatPercent(band.min, 0)}-${formatPercent(band.max, 0)}</td>`;
+
+                for (const exp of state.exposures) {
+                    const ratio = gameLoop.getHedgeRatioAtTenor(exp.underlying, band.tenor);
+                    const inRange = ratio >= band.min && ratio <= band.max;
+                    const color = inRange ? 'var(--pnl-positive)' : ratio === 0 ? 'var(--pnl-negative)' : 'var(--gold)';
+                    tenorHtml += `<td class="pixel-text" style="font-size:7px;text-align:center;padding:3px;color:${color};">${formatPercent(ratio, 0)}</td>`;
+                }
+                tenorHtml += '</tr>';
+            }
+            tenorHtml += '</table>';
+        } else {
+            // Flat policy — show overall compliance per exposure
+            tenorHtml += `<div class="pixel-text" style="font-size:8px;color:var(--text-secondary);margin:12px 0 4px;">COMPLIANCE STATUS</div>`;
+            for (const exp of state.exposures) {
+                const ratio = gameLoop.getHedgeRatio(exp.underlying);
+                const inRange = ratio >= policy.minHedgeRatio && ratio <= policy.maxHedgeRatio;
+                const color = inRange ? 'var(--pnl-positive)' : 'var(--pnl-negative)';
+                const icon = inRange ? '●' : '○';
+                tenorHtml += `<div style="display:flex;justify-content:space-between;padding:2px 0;">
+                    <span class="pixel-text" style="font-size:7px;color:var(--text-secondary);">${icon} ${exp.underlying}</span>
+                    <span class="pixel-text" style="font-size:7px;color:${color};">${formatPercent(ratio, 0)}</span>
+                </div>`;
+            }
+        }
+
+        // Budget rate type info
+        const budgetLabel = policy.budgetRateType === 'none' ? 'No budget rate (MTM only)'
+            : policy.budgetRateType === 'fixed' ? 'Fixed at game start'
+            : policy.budgetRateType === 'quarterly' ? 'Resets each quarter'
+            : policy.budgetRateType === 'annual' ? 'Resets annually (Q1)'
+            : policy.budgetRateType;
+
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.innerHTML = `
-            <div class="modal" style="min-width:380px;max-width:500px;">
+            <div class="modal" style="width:95vw;max-width:540px;">
                 <div class="modal-header">
                     HEDGING POLICY
                     <button class="modal-close" id="close-policy">X</button>
@@ -1211,13 +1793,18 @@ export class DashboardScreen {
                         ${rulesHtml}
                     </ul>
                     <div style="margin-top:12px;display:flex;justify-content:space-between;">
-                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted)">MIN HEDGE</span>
-                        <span class="pixel-text" style="font-size:9px;color:var(--cyan)">${formatPercent(policy.minHedgeRatio, 0)}</span>
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted)">HEDGE HORIZON</span>
+                        <span class="pixel-text" style="font-size:9px;color:var(--cyan)">${policy.hedgeHorizon}Q (${policy.hedgeHorizon * 3} months)</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;">
-                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted)">MAX HEDGE</span>
-                        <span class="pixel-text" style="font-size:9px;color:var(--cyan)">${formatPercent(policy.maxHedgeRatio, 0)}</span>
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted)">BUDGET RATE</span>
+                        <span class="pixel-text" style="font-size:9px;color:var(--cyan)">${budgetLabel}</span>
                     </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span class="pixel-text" style="font-size:8px;color:var(--text-muted)">HEDGE RANGE</span>
+                        <span class="pixel-text" style="font-size:9px;color:var(--cyan)">${formatPercent(policy.minHedgeRatio, 0)}-${formatPercent(policy.maxHedgeRatio, 0)}</span>
+                    </div>
+                    ${tenorHtml}
                 </div>
             </div>
         `;
@@ -1257,5 +1844,44 @@ export class DashboardScreen {
         if (this.bloombergTerminal) this.bloombergTerminal.stop();
         this.bloombergTerminal = new BloombergTerminal(canvas);
         this.bloombergTerminal.start(underlying, exposureType, currentRate, targetRate, rng);
+
+        // On mobile, also show Bloomberg overlay on the isometric viewport
+        this.showMobileBloomberg(exp);
+    }
+
+    /**
+     * On mobile, overlay the Bloomberg chart on the isometric viewport area.
+     * Uses a separate BloombergTerminal instance tied to the mobile canvas.
+     */
+    showMobileBloomberg(exposure) {
+        const mobileCanvas = this.el.querySelector('#bloomberg-canvas-mobile');
+        if (!mobileCanvas) return;
+
+        // Only activate on narrow screens
+        if (window.innerWidth > 768) return;
+
+        const state = gameState.get();
+        const underlying = exposure.underlying;
+        const currentRate = state.currentRates[underlying] || 0;
+        const targetRate = this.endOfQuarterRates?.[underlying] || currentRate;
+        const rng = gameState.getRng();
+
+        mobileCanvas.style.display = 'block';
+
+        if (this.mobileBloomberg) this.mobileBloomberg.stop();
+        this.mobileBloomberg = new BloombergTerminal(mobileCanvas);
+        this.mobileBloomberg.start(underlying, exposure.type, currentRate, targetRate, rng);
+    }
+
+    /**
+     * Hide the mobile Bloomberg overlay (called when quarter ends).
+     */
+    hideMobileBloomberg() {
+        const mobileCanvas = this.el.querySelector('#bloomberg-canvas-mobile');
+        if (mobileCanvas) mobileCanvas.style.display = 'none';
+        if (this.mobileBloomberg) {
+            this.mobileBloomberg.stop();
+            this.mobileBloomberg = null;
+        }
     }
 }

@@ -4,6 +4,17 @@ import { gameState } from '../engine/GameState.js';
 import { gameLoop } from '../engine/GameLoop.js';
 import { boardAI } from '../engine/BoardAI.js';
 import { formatPnL, formatQuarter, pnlClass } from '../utils/formatters.js';
+
+const CEO_EMOJIS = {
+    'jameson': '📰',
+    'musk': '🚀',
+    'oleary': '✈️',
+    'dimon': '🏦',
+    'buffett': '🍦',
+    'jobs': '🍎',
+    'dorsey': '🧘',
+    'ackman': '📝'
+};
 import { StressFace } from '../ui/StressFace.js';
 import { soundFX } from '../ui/SoundFX.js';
 
@@ -29,7 +40,7 @@ export class BoardScreen {
         const totalDelta = feedback.reduce((sum, f) => sum + f.satisfactionDelta, 0);
 
         // Apply satisfaction change
-        const clampedDelta = Math.max(-15, Math.min(5, totalDelta));
+        const clampedDelta = Math.round(Math.max(-15, Math.min(5, totalDelta)));
         gameState.adjustSatisfaction(clampedDelta);
 
         // Also apply event-based satisfaction if there was a recent event
@@ -59,6 +70,21 @@ export class BoardScreen {
             </div>
 
             <div style="flex:1;padding:16px;display:flex;flex-direction:column;overflow-y:auto;">
+                <!-- Satisfaction change — shown first so it's always visible -->
+                <div style="text-align:center;margin-bottom:12px;">
+                    <div class="panel" style="display:inline-block;min-width:280px;max-width:95vw;">
+                        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-secondary);margin-bottom:8px;">BOARD SATISFACTION</div>
+                        <div class="gauge" style="width:100%;height:24px;">
+                            <div class="gauge-fill ${state.boardSatisfaction >= 50 ? 'high' : state.boardSatisfaction >= 25 ? 'mid' : 'low'}"
+                                 style="width:${state.boardSatisfaction}%"></div>
+                            <div class="gauge-label">${state.boardSatisfaction}%</div>
+                        </div>
+                        <div style="font-family:var(--font-pixel);font-size:9px;margin-top:6px;color:${clampedDelta >= 0 ? 'var(--pnl-positive)' : 'var(--pnl-negative)'}">
+                            ${clampedDelta >= 0 ? '+' : ''}${clampedDelta}
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Boardroom table -->
                 <div class="boardroom-table">
                     QUARTERLY REVIEW
@@ -74,7 +100,7 @@ export class BoardScreen {
                             <div class="board-member-name">${fb.member.name}</div>
                             <div class="board-member-role">${fb.member.role}</div>
                             <div class="board-member-delta" style="font-family:var(--font-pixel);font-size:7px;color:${fb.satisfactionDelta >= 0 ? 'var(--pnl-positive)' : 'var(--pnl-negative)'};">
-                                ${fb.satisfactionDelta >= 0 ? '+' : ''}${fb.satisfactionDelta}
+                                ${fb.satisfactionDelta >= 0 ? '+' : ''}${Math.round(fb.satisfactionDelta)}
                             </div>
                             <div class="board-speech" id="speech-${i}">
                                 <span class="speech-text"></span><span class="blink">_</span>
@@ -94,7 +120,7 @@ export class BoardScreen {
                     <div class="ceo-appearance" style="margin-top:16px;">
                         <div class="panel" style="border-color:var(--gold);background:rgba(255,204,0,0.05);">
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                                <span style="font-size:28px;">👑</span>
+                                <span style="font-size:28px;">${CEO_EMOJIS[boardAI.ceoPersona] || '👑'}</span>
                                 <div>
                                     <div class="pixel-text" style="font-size:9px;color:var(--gold);">${ceoFeedback.member.name}</div>
                                     <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-muted);">CHAIRMAN OF THE BOARD</div>
@@ -106,21 +132,6 @@ export class BoardScreen {
                         </div>
                     </div>
                 ` : ''}
-
-                <!-- Satisfaction change -->
-                <div style="text-align:center;margin-top:16px;">
-                    <div class="panel" style="display:inline-block;min-width:300px;">
-                        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-secondary);margin-bottom:8px;">BOARD SATISFACTION</div>
-                        <div class="gauge" style="width:100%;height:24px;">
-                            <div class="gauge-fill ${state.boardSatisfaction >= 50 ? 'high' : state.boardSatisfaction >= 25 ? 'mid' : 'low'}"
-                                 style="width:${state.boardSatisfaction}%"></div>
-                            <div class="gauge-label">${state.boardSatisfaction}%</div>
-                        </div>
-                        <div style="font-family:var(--font-pixel);font-size:9px;margin-top:6px;color:${clampedDelta >= 0 ? 'var(--pnl-positive)' : 'var(--pnl-negative)'}">
-                            ${clampedDelta >= 0 ? '+' : ''}${clampedDelta}
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="dashboard-footer">
@@ -193,6 +204,8 @@ export class BoardScreen {
         if (!textSpan) return;
 
         let index = 0;
+        // Adaptive speed: longer text types faster so players don't wait forever
+        const speed = text.length > 200 ? 12 : text.length > 100 ? 20 : 30;
 
         const timer = setTimeout(() => {
             const typeTimer = setInterval(() => {
@@ -203,7 +216,7 @@ export class BoardScreen {
                     clearInterval(typeTimer);
                     if (cursor) cursor.style.display = 'none';
                 }
-            }, 30);
+            }, speed);
 
             this.typewriterTimers.push(typeTimer);
         }, delay);

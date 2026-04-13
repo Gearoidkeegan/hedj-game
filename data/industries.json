@@ -18,8 +18,9 @@
                     "quarterlyNotional": 200000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.05,
-                    "description": "Jet fuel costs (Brent proxy)",
-                    "volatilityHint": "high"
+                    "description": "Jet fuel costs (Brent crude proxy)",
+                    "volatilityHint": "high",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "usd-revenue",
@@ -29,7 +30,8 @@
                     "quarterlyNotional": 150000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.02,
-                    "description": "USD ticket revenue repatriation"
+                    "description": "USD ticket and ancillary revenue repatriation",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "gbp-revenue",
@@ -39,7 +41,8 @@
                     "quarterlyNotional": 80000000,
                     "unit": "GBP",
                     "budgetRateSpread": 0.015,
-                    "description": "UK route revenue"
+                    "description": "UK route revenue from London hub operations",
+                    "unlockQuarter": 4
                 },
                 {
                     "id": "floating-debt",
@@ -50,7 +53,8 @@
                     "quarterlyNotional": 2000000000,
                     "unit": "EUR",
                     "budgetRateSpread": 0.005,
-                    "description": "Aircraft financing (floating rate)"
+                    "description": "Aircraft fleet financing (floating rate)",
+                    "unlockQuarter": 6
                 }
             ],
             "boardMembers": [
@@ -95,6 +99,18 @@
             "scene": "roastery",
             "exposures": [
                 {
+                    "id": "coffee",
+                    "type": "commodity",
+                    "underlying": "COFFEE",
+                    "direction": "buy",
+                    "quarterlyNotional": 25000000,
+                    "unit": "USD",
+                    "budgetRateSpread": 0.06,
+                    "description": "Arabica coffee bean purchases",
+                    "volatilityHint": "high",
+                    "unlockQuarter": 0
+                },
+                {
                     "id": "usd-costs",
                     "type": "fx",
                     "underlying": "EURUSD",
@@ -102,27 +118,8 @@
                     "quarterlyNotional": 80000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.02,
-                    "description": "USD-denominated equipment & packaging imports"
-                },
-                {
-                    "id": "gbp-revenue",
-                    "type": "fx",
-                    "underlying": "EURGBP",
-                    "direction": "sell",
-                    "quarterlyNotional": 120000000,
-                    "unit": "GBP",
-                    "budgetRateSpread": 0.015,
-                    "description": "UK market revenue"
-                },
-                {
-                    "id": "brl-costs",
-                    "type": "fx",
-                    "underlying": "EURBRL",
-                    "direction": "buy",
-                    "quarterlyNotional": 60000000,
-                    "unit": "BRL",
-                    "budgetRateSpread": 0.05,
-                    "description": "Brazilian coffee bean purchases"
+                    "description": "USD-denominated equipment & packaging imports",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "nat-gas",
@@ -133,7 +130,19 @@
                     "unit": "USD",
                     "budgetRateSpread": 0.08,
                     "description": "Natural gas for roasting operations",
-                    "volatilityHint": "high"
+                    "volatilityHint": "high",
+                    "unlockQuarter": 4
+                },
+                {
+                    "id": "gbp-revenue",
+                    "type": "fx",
+                    "underlying": "EURGBP",
+                    "direction": "sell",
+                    "quarterlyNotional": 120000000,
+                    "unit": "GBP",
+                    "budgetRateSpread": 0.015,
+                    "description": "UK market revenue from retail distribution",
+                    "unlockQuarter": 4
                 },
                 {
                     "id": "dairy",
@@ -143,7 +152,8 @@
                     "quarterlyNotional": 10000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.06,
-                    "description": "Dairy products for coffee beverages"
+                    "description": "Dairy products for coffee beverages",
+                    "unlockQuarter": 6
                 },
                 {
                     "id": "floating-debt",
@@ -154,7 +164,19 @@
                     "quarterlyNotional": 400000000,
                     "unit": "EUR",
                     "budgetRateSpread": 0.005,
-                    "description": "Revolving credit facility (floating rate)"
+                    "description": "Revolving credit facility (floating rate)",
+                    "unlockQuarter": 6
+                },
+                {
+                    "id": "brl-costs",
+                    "type": "fx",
+                    "underlying": "EURBRL",
+                    "direction": "buy",
+                    "quarterlyNotional": 60000000,
+                    "unit": "BRL",
+                    "budgetRateSpread": 0.05,
+                    "description": "Brazilian supplier payments (direct BRL sourcing)",
+                    "unlockQuarter": 9
                 }
             ],
             "boardMembers": [
@@ -207,7 +229,8 @@
                     "quarterlyNotional": 200000000,
                     "unit": "JPY",
                     "budgetRateSpread": 2.0,
-                    "description": "Japanese component supplier payments"
+                    "description": "Japanese semiconductor and component supplier payments",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "eur-revenue",
@@ -217,7 +240,8 @@
                     "quarterlyNotional": 180000000,
                     "unit": "EUR",
                     "budgetRateSpread": 0.02,
-                    "description": "European sales revenue"
+                    "description": "European sales revenue repatriation",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "copper",
@@ -227,7 +251,8 @@
                     "quarterlyNotional": 50000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.04,
-                    "description": "Copper for circuit boards and wiring"
+                    "description": "Copper for circuit boards and wiring",
+                    "unlockQuarter": 4
                 },
                 {
                     "id": "floating-debt",
@@ -238,7 +263,8 @@
                     "quarterlyNotional": 3000000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.003,
-                    "description": "Term loan facility (floating rate)"
+                    "description": "Term loan facility (floating rate)",
+                    "unlockQuarter": 6
                 }
             ],
             "boardMembers": [
@@ -290,7 +316,8 @@
                     "quarterlyNotional": 250000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.02,
-                    "description": "US market drug sales revenue"
+                    "description": "US market pharmaceutical sales revenue",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "chf-costs",
@@ -300,18 +327,20 @@
                     "quarterlyNotional": 60000000,
                     "unit": "CHF",
                     "budgetRateSpread": 0.01,
-                    "description": "Swiss R&D facility costs"
+                    "description": "Swiss R&D facility operating costs",
+                    "unlockQuarter": 4
                 },
                 {
                     "id": "floating-debt",
                     "type": "ir",
-                    "underlying": "SOFR",
+                    "underlying": "EURIBOR",
                     "direction": "pay",
                     "notional": 1500000000,
                     "quarterlyNotional": 1500000000,
-                    "unit": "USD",
+                    "unit": "EUR",
                     "budgetRateSpread": 0.004,
-                    "description": "Acquisition financing (floating rate)"
+                    "description": "Acquisition financing (floating rate)",
+                    "unlockQuarter": 6
                 }
             ],
             "boardMembers": [
@@ -363,18 +392,9 @@
                     "quarterlyNotional": 40000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.06,
-                    "description": "Structural steel for projects",
-                    "volatilityHint": "high"
-                },
-                {
-                    "id": "copper",
-                    "type": "commodity",
-                    "underlying": "COPPER",
-                    "direction": "buy",
-                    "quarterlyNotional": 25000000,
-                    "unit": "USD",
-                    "budgetRateSpread": 0.04,
-                    "description": "Copper wiring and electrical systems"
+                    "description": "Structural steel for building projects",
+                    "volatilityHint": "high",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "gbp-revenue",
@@ -384,7 +404,19 @@
                     "quarterlyNotional": 100000000,
                     "unit": "GBP",
                     "budgetRateSpread": 0.015,
-                    "description": "UK infrastructure project revenue"
+                    "description": "UK infrastructure project revenue",
+                    "unlockQuarter": 0
+                },
+                {
+                    "id": "copper",
+                    "type": "commodity",
+                    "underlying": "COPPER",
+                    "direction": "buy",
+                    "quarterlyNotional": 25000000,
+                    "unit": "USD",
+                    "budgetRateSpread": 0.04,
+                    "description": "Copper for wiring and electrical systems",
+                    "unlockQuarter": 4
                 },
                 {
                     "id": "usd-equipment",
@@ -394,7 +426,8 @@
                     "quarterlyNotional": 50000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.02,
-                    "description": "US equipment and machinery imports"
+                    "description": "US heavy equipment and machinery imports",
+                    "unlockQuarter": 4
                 },
                 {
                     "id": "floating-debt",
@@ -406,7 +439,8 @@
                     "unit": "EUR",
                     "budgetRateSpread": 0.005,
                     "description": "Project financing & corporate debt (floating rate)",
-                    "volatilityHint": "high"
+                    "volatilityHint": "high",
+                    "unlockQuarter": 6
                 }
             ],
             "boardMembers": [
@@ -452,14 +486,15 @@
             "scene": "energy_grid",
             "exposures": [
                 {
-                    "id": "gbp-revenue",
-                    "type": "fx",
-                    "underlying": "GBPUSD",
-                    "direction": "buy",
-                    "quarterlyNotional": 120000000,
-                    "unit": "GBP",
-                    "budgetRateSpread": 0.02,
-                    "description": "UK energy sales revenue"
+                    "id": "oil-production",
+                    "type": "commodity",
+                    "underlying": "BRENT",
+                    "direction": "sell",
+                    "quarterlyNotional": 300000000,
+                    "unit": "USD",
+                    "budgetRateSpread": 0.05,
+                    "description": "Crude oil production revenue (Brent benchmark)",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "eur-revenue",
@@ -469,17 +504,8 @@
                     "quarterlyNotional": 200000000,
                     "unit": "EUR",
                     "budgetRateSpread": 0.02,
-                    "description": "European energy sales revenue"
-                },
-                {
-                    "id": "oil-production",
-                    "type": "commodity",
-                    "underlying": "BRENT",
-                    "direction": "sell",
-                    "quarterlyNotional": 300000000,
-                    "unit": "USD",
-                    "budgetRateSpread": 0.05,
-                    "description": "Crude oil production revenue"
+                    "description": "European energy sales revenue repatriation",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "natgas-production",
@@ -489,7 +515,19 @@
                     "quarterlyNotional": 150000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.08,
-                    "description": "Natural gas production revenue"
+                    "description": "Natural gas production and sales revenue",
+                    "unlockQuarter": 4
+                },
+                {
+                    "id": "gbp-revenue",
+                    "type": "fx",
+                    "underlying": "GBPUSD",
+                    "direction": "buy",
+                    "quarterlyNotional": 120000000,
+                    "unit": "GBP",
+                    "budgetRateSpread": 0.02,
+                    "description": "UK North Sea operations revenue",
+                    "unlockQuarter": 4
                 },
                 {
                     "id": "floating-debt",
@@ -500,7 +538,8 @@
                     "quarterlyNotional": 4000000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.003,
-                    "description": "Infrastructure financing (floating rate)"
+                    "description": "Infrastructure and capex financing (floating rate)",
+                    "unlockQuarter": 6
                 }
             ],
             "boardMembers": [
@@ -553,7 +592,8 @@
                     "quarterlyNotional": 180000000,
                     "unit": "USD",
                     "budgetRateSpread": 0.02,
-                    "description": "US goods and merchandise imports"
+                    "description": "US goods and merchandise import costs",
+                    "unlockQuarter": 0
                 },
                 {
                     "id": "eur-imports",
@@ -563,7 +603,8 @@
                     "quarterlyNotional": 100000000,
                     "unit": "EUR",
                     "budgetRateSpread": 0.015,
-                    "description": "European supplier payments"
+                    "description": "European supplier and logistics payments",
+                    "unlockQuarter": 4
                 },
                 {
                     "id": "floating-debt",
@@ -574,7 +615,8 @@
                     "quarterlyNotional": 1200000000,
                     "unit": "GBP",
                     "budgetRateSpread": 0.004,
-                    "description": "Revolving credit & store leases (floating rate)"
+                    "description": "Revolving credit facility & property leases (floating rate)",
+                    "unlockQuarter": 6
                 }
             ],
             "boardMembers": [

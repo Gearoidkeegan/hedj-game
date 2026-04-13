@@ -272,13 +272,14 @@ export class StressFace {
                 ctx.quadraticCurveTo(42 * px, browY - 3 * px, 48 * px, browY + 1 * px);
                 ctx.stroke();
             } else {
+                // Relaxed — slight upward curve
                 ctx.beginPath();
-                ctx.moveTo(18 * px, browY);
-                ctx.lineTo(30 * px, browY);
+                ctx.moveTo(18 * px, browY + 1 * px);
+                ctx.quadraticCurveTo(24 * px, browY - 1 * px, 30 * px, browY + 1 * px);
                 ctx.stroke();
                 ctx.beginPath();
-                ctx.moveTo(36 * px, browY);
-                ctx.lineTo(48 * px, browY);
+                ctx.moveTo(36 * px, browY + 1 * px);
+                ctx.quadraticCurveTo(42 * px, browY - 1 * px, 48 * px, browY + 1 * px);
                 ctx.stroke();
             }
         } else if (stress <= 60) {
