@@ -134,12 +134,24 @@ class HedgingEngineController {
             productId,
             assetClass: exposure.type,
             underlying: exposure.underlying,
-            // FX: hedge direction is OPPOSITE to exposure (sell exposure → buy forward
-            // to lock in EUR conversion rate). Commodities: same direction (buy exposure
-            // → buy futures to lock in purchase price).
-            direction: exposure.type === 'fx'
-                ? (exposure.direction === 'buy' ? 'sell' : 'buy')
-                : (exposure.direction === 'buy' ? 'buy' : 'sell'),
+            // Hedge direction stored in PAIR-action terms (buy/sell the pair).
+            // FX with home=base of pair (e.g. EUR base + EURUSD, unit=USD): hedge
+            // direction is OPPOSITE to exposure unit-action (sell-USD exposure →
+            // BUY EURUSD to lock in EUR). FX with home=quote of pair (e.g. USD base
+            // + EURUSD, unit=EUR): hedge direction MATCHES (sell-EUR exposure →
+            // SELL EURUSD). Commodities: same direction as exposure.
+            direction: (() => {
+                if (exposure.type !== 'fx') {
+                    return exposure.direction === 'buy' ? 'buy' : 'sell';
+                }
+                const homeIsBase = typeof exposure.underlying === 'string'
+                    && typeof exposure.unit === 'string'
+                    && exposure.underlying.endsWith(exposure.unit);
+                if (homeIsBase) {
+                    return exposure.direction === 'buy' ? 'sell' : 'buy';
+                }
+                return exposure.direction === 'buy' ? 'buy' : 'sell';
+            })(),
             notional,
             startQuarter: currentQuarter,
             maturityQuarter: currentQuarter + tenorQuarters,

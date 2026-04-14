@@ -2,6 +2,25 @@
 
 import { GAME_CONFIG } from '../utils/constants.js';
 
+// Budget = spot shifted 0.5% toward the unfavourable direction for FX/commodity
+// (so a spot outcome yields ~0.5% positive variance). Rates: no budget.
+export const BUDGET_SPREAD = 0.005;
+export function computeBudgetRate(exp, spot) {
+    if (spot === undefined || spot === null) return null;
+    if (exp.type === 'ir') return null;
+    const revenue = (exp.direction === 'sell' || exp.direction === 'receive');
+    let unfavourableUp;
+    if (exp.type === 'fx') {
+        const homeIsBase = typeof exp.underlying === 'string'
+            && typeof exp.unit === 'string'
+            && exp.underlying.endsWith(exp.unit);
+        unfavourableUp = homeIsBase ? revenue : !revenue;
+    } else {
+        unfavourableUp = !revenue; // commodity: cost side hurt by rising price
+    }
+    return spot * (1 + (unfavourableUp ? BUDGET_SPREAD : -BUDGET_SPREAD));
+}
+
 class MarketEngineController {
     constructor() {
         this.fxData = null;
@@ -25,6 +44,17 @@ class MarketEngineController {
             this.fxData = this.stripMeta(fxRes);
             this.ratesData = this.stripMeta(ratesRes);
             this.commoditiesData = this.stripMeta(commoditiesRes);
+
+            // Derived proxy: Jet CIF NWE ≈ Brent × 1.8 × 7.4 ($/bbl → $/tonne with crack spread)
+            if (this.commoditiesData.BRENT && !this.commoditiesData.JETNWE) {
+                const k = 1.8 * 7.4;
+                const jet = {};
+                for (const [date, px] of Object.entries(this.commoditiesData.BRENT)) {
+                    jet[date] = px * k;
+                }
+                this.commoditiesData.JETNWE = jet;
+            }
+
             this.loaded = true;
             console.log('MarketEngine: data loaded', {
                 fx: Object.keys(this.fxData).length,
@@ -182,15 +212,8 @@ class MarketEngineController {
         for (const exp of exposures) {
             const spot = spotRates[exp.underlying];
             if (spot === undefined) continue;
-
-            const spread = exp.budgetRateSpread || 0.02;
-            if (exp.direction === 'buy') {
-                // Buying: budget assumes lower cost
-                budgetRates[exp.underlying] = spot * (1 - spread);
-            } else {
-                // Selling: budget assumes higher revenue
-                budgetRates[exp.underlying] = spot * (1 + spread);
-            }
+            const br = computeBudgetRate(exp, spot);
+            if (br !== null) budgetRates[exp.underlying] = br;
         }
 
         return budgetRates;

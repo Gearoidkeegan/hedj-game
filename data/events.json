@@ -234,7 +234,7 @@
                     "id": "acknowledge",
                     "label": "Continue",
                     "description": "Acknowledge the fuel spike and review your hedge book.",
-                    "effect": { "rate_shock": { "BRENT": 0.25 }, "satisfaction_delta": -2 }
+                    "effect": { "rate_shock": { "JETNWE": 0.25 }, "satisfaction_delta": -2 }
                 }
             ],
             "weight": 1.5,

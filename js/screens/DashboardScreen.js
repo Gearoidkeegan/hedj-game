@@ -392,8 +392,9 @@ export class DashboardScreen {
                 const halfSpread = livePrice * (spreadBps / 10000);
                 const buyBtn = dirContainer.querySelector('#btn-direction-buy');
                 const sellBtn = dirContainer.querySelector('#btn-direction-sell');
-                if (buyBtn) buyBtn.textContent = `BUY @ ${formatRate(livePrice + halfSpread, 4, exp.type)}`;
-                if (sellBtn) sellBtn.textContent = `SELL @ ${formatRate(livePrice - halfSpread, 4, exp.type)}`;
+                const label = exp.unit || exp.underlying;
+                if (buyBtn) buyBtn.innerHTML = `BUY ${label}<br>@ ${formatRate(livePrice - halfSpread, 4, exp.type)}`;
+                if (sellBtn) sellBtn.innerHTML = `SELL ${label}<br>@ ${formatRate(livePrice + halfSpread, 4, exp.type)}`;
             }
         }
     }
@@ -481,24 +482,21 @@ export class DashboardScreen {
                     ${exposure.description}
                 </div>
                 <div style="display:flex;gap:8px;justify-content:center;">
-                    <button class="btn" id="btn-direction-buy" style="min-width:100px;">
-                        BUY @ ${formatRate(ask, 4, exposure.type)}
+                    <button class="btn" id="btn-direction-buy" style="min-width:120px;">
+                        BUY ${exposure.unit || exposure.underlying}<br>@ ${formatRate(bid, 4, exposure.type)}
                     </button>
-                    <button class="btn" id="btn-direction-sell" style="min-width:100px;">
-                        SELL @ ${formatRate(bid, 4, exposure.type)}
+                    <button class="btn" id="btn-direction-sell" style="min-width:120px;">
+                        SELL ${exposure.unit || exposure.underlying}<br>@ ${formatRate(ask, 4, exposure.type)}
                     </button>
                 </div>
             </div>
         `;
 
-        // Determine correct hedge direction
-        // FX (EUR-cross): hedge direction is OPPOSITE to exposure
-        //   - "sell" exposure (receive foreign ccy) → BUY hedge (buy EUR, sell foreign)
-        //   - "buy" exposure (pay foreign ccy) → SELL hedge (sell EUR, buy foreign)
-        // Commodities/IR: hedge direction matches exposure direction
-        const correctDirection = exposure.type === 'fx'
-            ? (exposure.direction === 'buy' ? 'sell' : 'buy')
-            : exposure.direction;
+        // Buttons represent action on the UNIT currency (FX) / underlying (commodity/IR).
+        // Correct hedge action matches exposure.direction: sell-unit exposure → SELL button,
+        // buy-unit exposure → BUY button. The HedgingEngine maps this to pair direction
+        // internally based on pair orientation.
+        const correctDirection = exposure.direction;
 
         container.querySelector('#btn-direction-buy').addEventListener('click', () => {
             if (correctDirection === 'buy' || correctDirection === 'pay') {
@@ -509,7 +507,7 @@ export class DashboardScreen {
         });
 
         container.querySelector('#btn-direction-sell').addEventListener('click', () => {
-            if (correctDirection === 'sell') {
+            if (correctDirection === 'sell' || correctDirection === 'receive') {
                 this.onDirectionCorrect(exposure);
             } else {
                 this.onDirectionWrong(exposure);

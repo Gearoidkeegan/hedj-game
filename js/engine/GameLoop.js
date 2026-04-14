@@ -3,7 +3,7 @@
 import { gameState } from './GameState.js';
 import { eventEngine } from './EventEngine.js';
 import { careerEngine } from './CareerEngine.js';
-import { marketEngine } from './MarketEngine.js';
+import { marketEngine, computeBudgetRate } from './MarketEngine.js';
 import { forecastEngine } from './ForecastEngine.js';
 import { PHASE, GAME_CONFIG } from '../utils/constants.js';
 
@@ -144,11 +144,15 @@ class GameLoopController {
                     expPnL = priceMoveRatio * realizedNotional;
                 }
 
-                // FX EUR-cross rates have an INVERSE relationship:
-                // EURUSD up = EUR stronger = foreign currency worth LESS in EUR.
-                // So for a EUR company receiving USD (sell direction), rate UP = LOSS,
-                // which is the opposite of the commodity convention above.
-                if (exposure.type === 'fx') {
+                // FX inversion only applies when the company's home currency is the
+                // BASE of the pair (pair ends with the unit currency, e.g. EUR-base +
+                // EURUSD with unit=USD). When home is the QUOTE of the pair (e.g.
+                // USD-base + EURUSD with unit=EUR), rate changes map directly to the
+                // unit value in home terms, same as commodity convention.
+                if (exposure.type === 'fx'
+                    && typeof exposure.underlying === 'string'
+                    && typeof exposure.unit === 'string'
+                    && exposure.underlying.endsWith(exposure.unit)) {
                     expPnL = -expPnL;
                 }
             }
@@ -286,8 +290,13 @@ class GameLoopController {
                 let pnl = exposure.direction === 'buy'
                     ? -priceMoveRatio * horizonNotional
                     : priceMoveRatio * horizonNotional;
-                // FX inversion: EUR-cross rates have inverse P&L relationship
-                if (exposure.type === 'fx') pnl = -pnl;
+                // FX inversion only when home=base of pair (see exposurePnL notes).
+                if (exposure.type === 'fx'
+                    && typeof exposure.underlying === 'string'
+                    && typeof exposure.unit === 'string'
+                    && exposure.underlying.endsWith(exposure.unit)) {
+                    pnl = -pnl;
+                }
                 horizonExposurePnL += pnl;
             }
         }
@@ -446,7 +455,7 @@ class GameLoopController {
         const placeholderRates = {
             'EURUSD': 1.10, 'EURGBP': 0.86, 'EURBRL': 5.50, 'EURCHF': 0.96,
             'EURJPY': 155, 'USDJPY': 140, 'GBPUSD': 1.27,
-            'BRENT': 75, 'NATGAS': 3.0, 'COPPER': 4.0, 'STEEL': 600,
+            'BRENT': 75, 'JETNWE': 75 * 1.8 * 7.4, 'NATGAS': 3.0, 'COPPER': 4.0, 'STEEL': 600,
             'DAIRY': 18, 'WHEAT': 6.0, 'CORN': 4.5, 'GOLD': 1900, 'COFFEE': 150,
             'EURIBOR': 0.035, 'SOFR': 0.05, 'SONIA': 0.05
         };
@@ -473,13 +482,8 @@ class GameLoopController {
             currentRates[exp.underlying] = baseRate;
             previousRates[exp.underlying] = baseRate;
 
-            // Set budget rate with favourable spread
-            const spread = exp.budgetRateSpread || 0.02;
-            if (exp.direction === 'buy') {
-                budgetRates[exp.underlying] = baseRate * (1 - spread);
-            } else {
-                budgetRates[exp.underlying] = baseRate * (1 + spread);
-            }
+            const br = computeBudgetRate(exp, baseRate);
+            if (br !== null) budgetRates[exp.underlying] = br;
             changed = true;
         }
 

@@ -2,7 +2,7 @@
 
 import { gameState } from '../engine/GameState.js';
 import { gameLoop } from '../engine/GameLoop.js';
-import { marketEngine } from '../engine/MarketEngine.js';
+import { marketEngine, computeBudgetRate } from '../engine/MarketEngine.js';
 import { bankEngine } from '../engine/BankEngine.js';
 import { eventEngine } from '../engine/EventEngine.js';
 import { boardAI } from '../engine/BoardAI.js';
@@ -283,6 +283,7 @@ export class SetupScreen {
             'USDJPY': 140 + rng.floatRange(-10, 10),
             'GBPUSD': 1.27 + rng.floatRange(-0.08, 0.08),
             'BRENT': 75 + rng.floatRange(-15, 15),
+            'JETNWE': (75 + rng.floatRange(-15, 15)) * 1.8 * 7.4,
             'NATGAS': 3.0 + rng.floatRange(-1.0, 1.0),
             'COPPER': 4.0 + rng.floatRange(-0.5, 0.5),
             'STEEL': 600 + rng.floatRange(-100, 100),
@@ -312,12 +313,8 @@ export class SetupScreen {
             // Prefer historical, fall back to placeholder
             const baseRate = historicalRates[exp.underlying] || placeholderRates[exp.underlying] || 1.0;
             currentRates[exp.underlying] = baseRate;
-            const spread = exp.budgetRateSpread || 0.02;
-            if (exp.direction === 'buy') {
-                budgetRates[exp.underlying] = baseRate * (1 - spread);
-            } else {
-                budgetRates[exp.underlying] = baseRate * (1 + spread);
-            }
+            const br = computeBudgetRate(exp, baseRate);
+            if (br !== null) budgetRates[exp.underlying] = br;
         }
 
         gameState.update({
