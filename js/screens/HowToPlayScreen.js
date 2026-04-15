@@ -26,15 +26,16 @@ const STEPS = [
         blurb: `Your business has natural exposures — foreign currency revenue, fuel or commodity input costs, and floating-rate debt. Market moves translate directly into P&L variance. Identify them on the dashboard before you can manage them.`,
         mockup: () => `
             <div class="guide-mock-panel">
-                <div class="guide-mock-title">EXPOSURES</div>
+                <div class="guide-mock-title">EXPOSURES — AIRLINE</div>
                 <div class="guide-mock-row"><span>EUR/USD revenue</span><span class="m-cyan">€2.4M</span></div>
-                <div class="guide-mock-row"><span>Jet fuel cost</span><span class="m-cyan">12,000 bbl</span></div>
+                <div class="guide-mock-row"><span>Jet fuel (mT)</span><span class="m-cyan">200,000 mT</span></div>
+                <div class="guide-mock-row"><span>Brent crude (bbl)</span><span class="m-cyan">hedge ref.</span></div>
                 <div class="guide-mock-row"><span>Floating-rate debt</span><span class="m-cyan">$5.0M</span></div>
                 <div class="guide-mock-row m-totalrow"><span>Net P&amp;L sensitivity</span><span class="m-bad">±$340k</span></div>
             </div>
         `,
         callouts: [
-            { x: 80, y: 78, text: 'Bigger sensitivity = more variance risk' }
+            { x: 80, y: 82, text: 'Jet fuel in mT; Brent hedge ref. in barrels (bbl)' }
         ]
     },
     {

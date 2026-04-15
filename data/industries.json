@@ -17,8 +17,10 @@
                     "direction": "buy",
                     "quarterlyNotional": 200000000,
                     "unit": "USD",
+                    "physicalNotional": 200000,
+                    "physicalUnit": "mT",
                     "budgetRateSpread": 0.05,
-                    "description": "Jet fuel costs (Jet CIF NWE, Brent-linked proxy)",
+                    "description": "Jet fuel costs — 200,000 metric tonnes/qtr (Jet CIF NWE, $/tonne; Brent-linked proxy)",
                     "volatilityHint": "high",
                     "unlockQuarter": 0
                 },
@@ -492,8 +494,10 @@
                     "direction": "sell",
                     "quarterlyNotional": 300000000,
                     "unit": "USD",
+                    "physicalNotional": 4000000,
+                    "physicalUnit": "bbl",
                     "budgetRateSpread": 0.05,
-                    "description": "Crude oil production revenue (Brent benchmark)",
+                    "description": "Crude oil production revenue — 4,000,000 barrels/qtr (Brent benchmark, $/bbl)",
                     "unlockQuarter": 0
                 },
                 {

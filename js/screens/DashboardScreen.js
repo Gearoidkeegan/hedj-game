@@ -17,6 +17,16 @@ import { HedgeLadder } from '../ui/HedgeLadder.js';
 import { StressFace } from '../ui/StressFace.js';
 import { soundFX } from '../ui/SoundFX.js';
 
+// Format exposure size using physical units (mT, bbl) when defined, otherwise currency
+function formatExposureNotional(exp, notionalUSD) {
+    const n = notionalUSD !== undefined ? notionalUSD : (exp.quarterlyNotional || 0);
+    if (exp.physicalNotional && exp.physicalUnit && exp.quarterlyNotional > 0) {
+        const scaled = Math.round(exp.physicalNotional * (n / exp.quarterlyNotional));
+        return `${scaled.toLocaleString()} ${exp.physicalUnit}`;
+    }
+    return formatCurrency(n, '', true);
+}
+
 export class DashboardScreen {
     constructor(app) {
         this.app = app;
@@ -1064,7 +1074,7 @@ export class DashboardScreen {
                     </div>
                     <div class="exposure-row-bottom">
                         <span class="pixel-text" style="font-size:7px;color:var(--text-muted)">
-                            Forecast: ${formatCurrency(exp.quarterlyNotional, '', true)}/qtr
+                            Forecast: ${formatExposureNotional(exp)}/qtr
                         </span>
                         <span class="pixel-text" style="font-size:7px;color:var(--cyan)">
                             Hedged: ${formatCurrency(hedgedNotional, '', true)}
@@ -1178,7 +1188,7 @@ export class DashboardScreen {
                     </div>
                     <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
                         <span class="pixel-text" style="font-size:8px;color:var(--text-muted);">FORECAST</span>
-                        <span class="pixel-text" style="font-size:9px;color:var(--text-primary);">${formatCurrency(exp.quarterlyNotional, '', true)}/qtr</span>
+                        <span class="pixel-text" style="font-size:9px;color:var(--text-primary);">${formatExposureNotional(exp)}/qtr</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
                         <span class="pixel-text" style="font-size:8px;color:var(--text-muted);">CURRENT RATE</span>
@@ -1296,11 +1306,11 @@ export class DashboardScreen {
             </div>
             <div class="readable-text" style="font-size:15px;margin-top:4px;">${exp.description}</div>
             <div style="display:flex;justify-content:space-between;margin-top:6px;">
-                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">Forecast: ${formatCurrency(exp.quarterlyNotional, '', true)}/qtr</span>
+                <span class="readable-text" style="font-size:14px;color:var(--text-muted)">Forecast: ${formatExposureNotional(exp)}/qtr</span>
                 <span class="readable-text" style="font-size:14px;color:var(--text-muted)">${horizon}Q horizon</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-top:4px;">
-                <span class="readable-text" style="font-size:14px;color:var(--text-secondary)">Total exposure: ${formatCurrency(totalExposure, '', true)}</span>
+                <span class="readable-text" style="font-size:14px;color:var(--text-secondary)">Total exposure: ${formatExposureNotional(exp, totalExposure)}</span>
                 <span class="readable-text" style="font-size:14px;color:var(--cyan)">Hedged: ${formatCurrency(totalHedged, '', true)}</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-top:4px;align-items:center;">
@@ -1479,7 +1489,7 @@ export class DashboardScreen {
         // Determine sender and message based on exposure types
         const expSummary = newExposures.map(exp => {
             const typeLabel = exp.type === 'fx' ? 'FX' : exp.type === 'ir' ? 'Interest Rate' : 'Commodity';
-            return `<strong>${exp.underlying}</strong> — ${exp.description} (${typeLabel}, ${formatCurrency(exp.quarterlyNotional, '', true)}/qtr)`;
+            return `<strong>${exp.underlying}</strong> — ${exp.description} (${typeLabel}, ${formatExposureNotional(exp)}/qtr)`;
         }).join('<br>');
 
         // Determine sender based on exposure types

@@ -98,6 +98,9 @@ class CareerEngineController {
             if (exp.notional) {
                 exp.notional = Math.round(exp.notional * params.revenueMultiplier);
             }
+            if (exp.physicalNotional) {
+                exp.physicalNotional = Math.round(exp.physicalNotional * params.revenueMultiplier);
+            }
         }
 
         // PE takeover: double IR exposure
