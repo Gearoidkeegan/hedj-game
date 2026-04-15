@@ -34,6 +34,7 @@ export class TitleScreen {
                 <button class="btn btn-gold" id="btn-quick-play">QUICK PLAY</button>
                 <button class="btn btn-primary" id="btn-career-mode">CAREER MODE</button>
                 <button class="btn" id="btn-leaderboard">LEADERBOARD</button>
+                <button class="btn" id="btn-how-to-play">HOW TO PLAY</button>
             </div>
 
             <div class="title-mode-info" id="mode-info">
@@ -88,6 +89,10 @@ export class TitleScreen {
 
         this.el.querySelector('#btn-leaderboard').addEventListener('click', () => {
             this.showLeaderboard();
+        });
+
+        this.el.querySelector('#btn-how-to-play').addEventListener('click', () => {
+            this.app.showScreen('howtoplay');
         });
 
         // Animate background

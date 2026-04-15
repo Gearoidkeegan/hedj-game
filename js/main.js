@@ -17,6 +17,8 @@ import { ExtendScreen } from './screens/ExtendScreen.js';
 import { EventScreen } from './screens/EventScreen.js';
 import { LevelCompleteScreen } from './screens/LevelCompleteScreen.js';
 import { GameOverScreen } from './screens/GameOverScreen.js';
+import { HowToPlayScreen } from './screens/HowToPlayScreen.js';
+import { hasSeenGuide } from './utils/storage.js';
 
 class App {
     constructor() {
@@ -42,7 +44,8 @@ class App {
             board: new BoardScreen(this),
             summary: new QuarterSummaryScreen(this),
             extend: new ExtendScreen(this),
-            gameover: new GameOverScreen(this)
+            gameover: new GameOverScreen(this),
+            howtoplay: new HowToPlayScreen(this)
         };
 
         // Wire up game loop phase changes to screen transitions
@@ -50,8 +53,13 @@ class App {
             this.onPhaseChange(phase);
         };
 
-        // Start at title screen
-        this.showScreen('title');
+        // First-time visitors get the How to Play guide; everyone else goes to title
+        if (!hasSeenGuide()) {
+            this.screens.howtoplay.fromAutoShow = true;
+            this.showScreen('howtoplay');
+        } else {
+            this.showScreen('title');
+        }
     }
 
     async loadData() {

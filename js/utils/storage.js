@@ -2,7 +2,20 @@
 
 const SAVE_KEY = 'hedj_game_save';
 const LEADERBOARD_KEY = 'hedj_game_leaderboard';
+const GUIDE_SEEN_KEY = 'hedj_has_seen_guide';
 const MAX_LEADERBOARD_ENTRIES = 20;
+
+export function hasSeenGuide() {
+    return localStorage.getItem(GUIDE_SEEN_KEY) === '1';
+}
+
+export function markGuideSeen() {
+    try {
+        localStorage.setItem(GUIDE_SEEN_KEY, '1');
+    } catch (e) {
+        console.warn('Failed to mark guide seen:', e);
+    }
+}
 
 export function saveGame(gameState) {
     try {
