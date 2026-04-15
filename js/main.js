@@ -18,7 +18,6 @@ import { EventScreen } from './screens/EventScreen.js';
 import { LevelCompleteScreen } from './screens/LevelCompleteScreen.js';
 import { GameOverScreen } from './screens/GameOverScreen.js';
 import { HowToPlayScreen } from './screens/HowToPlayScreen.js';
-import { hasSeenGuide } from './utils/storage.js';
 
 class App {
     constructor() {
@@ -53,13 +52,8 @@ class App {
             this.onPhaseChange(phase);
         };
 
-        // First-time visitors get the How to Play guide; everyone else goes to title
-        if (!hasSeenGuide()) {
-            this.screens.howtoplay.fromAutoShow = true;
-            this.showScreen('howtoplay');
-        } else {
-            this.showScreen('title');
-        }
+        // Always start at title screen
+        this.showScreen('title');
     }
 
     async loadData() {

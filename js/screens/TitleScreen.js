@@ -1,7 +1,7 @@
 // Title Screen — animated intro with start/continue/leaderboard options
 // Includes attract mode demo loop for conventions
 
-import { hasSavedGame, getLeaderboard, exportLeaderboardCSV } from '../utils/storage.js';
+import { hasSavedGame, getLeaderboard, exportLeaderboardCSV, hasSeenGuide } from '../utils/storage.js';
 import { careerEngine } from '../engine/CareerEngine.js';
 import { soundFX } from '../ui/SoundFX.js';
 
@@ -70,14 +70,28 @@ export class TitleScreen {
         this.el.querySelector('#btn-quick-play').addEventListener('click', () => {
             careerEngine.reset();
             this.app.gameMode = 'quickplay';
-            this.app.showScreen('setup');
+            if (!hasSeenGuide()) {
+                const guide = this.app.screens.howtoplay;
+                guide.fromAutoShow = true;
+                guide.returnScreen = 'setup';
+                this.app.showScreen('howtoplay');
+            } else {
+                this.app.showScreen('setup');
+            }
         });
 
         // Career mode
         this.el.querySelector('#btn-career-mode').addEventListener('click', () => {
             careerEngine.startCareer();
             this.app.gameMode = 'career';
-            this.app.showScreen('setup');
+            if (!hasSeenGuide()) {
+                const guide = this.app.screens.howtoplay;
+                guide.fromAutoShow = true;
+                guide.returnScreen = 'setup';
+                this.app.showScreen('howtoplay');
+            } else {
+                this.app.showScreen('setup');
+            }
         });
 
         // Sound toggle

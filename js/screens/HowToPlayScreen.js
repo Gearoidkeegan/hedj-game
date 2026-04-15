@@ -72,18 +72,19 @@ const STEPS = [
     },
     {
         title: 'TREASURY MANAGEMENT SYSTEM',
-        blurb: `The TMS is your central record of every position, hedge, and bank line. Use it to check open trades, mark-to-market, and remaining tenor. The board will quote it back to you in reviews — know what's in it.`,
+        blurb: `Your TMS starts basic — it tracks positions but forecasts are rough. Purchase upgrade modules to improve forecast accuracy and get better market intelligence. Modules are expensive, so prioritise wisely. A better TMS means tighter variance and higher grades.`,
         mockup: () => `
             <div class="guide-mock-panel">
-                <div class="guide-mock-title">TMS — OPEN POSITIONS</div>
-                <div class="guide-mock-row"><span>FWD EUR/USD 80%</span><span class="m-ok">+$12k MTM</span></div>
-                <div class="guide-mock-row"><span>OPT WTI Call</span><span class="m-bad">-$4k MTM</span></div>
-                <div class="guide-mock-row"><span>IRS USD 5Y</span><span class="m-ok">+$8k MTM</span></div>
-                <div class="guide-mock-row m-totalrow"><span>Portfolio MTM</span><span class="m-ok">+$16k</span></div>
+                <div class="guide-mock-title">TMS MODULES</div>
+                <div class="guide-mock-row"><span>Base TMS</span><span class="m-ok">INSTALLED</span></div>
+                <div class="guide-mock-row"><span>FX Forecast Engine</span><span class="m-warn">$45,000</span></div>
+                <div class="guide-mock-row"><span>Commodity Analytics</span><span class="m-warn">$38,000</span></div>
+                <div class="guide-mock-row"><span>Rates Intelligence</span><span class="m-bad">$62,000</span></div>
+                <div class="guide-mock-row m-totalrow"><span>Forecast accuracy</span><span class="m-bad">LOW</span></div>
             </div>
         `,
         callouts: [
-            { x: 78, y: 78, text: 'Net MTM feeds P&L variance' }
+            { x: 82, y: 78, text: 'Better TMS = tighter variance = higher grade' }
         ]
     },
     {
@@ -104,7 +105,7 @@ const STEPS = [
     },
     {
         title: 'RANDOM EVENTS',
-        blurb: `Markets move and shocks happen — central bank surprises, geopolitical events, supply disruptions. You'll see news headlines and have a chance to react before resolution. Hedged exposures shrug it off; naked ones bite.`,
+        blurb: `Markets move and shocks happen — central bank surprises, geopolitical events, supply disruptions. You'll see news headlines and have a chance to react before resolution. Hedge, unwind, adjust product mix, ignore? The choices are yours, as are the consequences.`,
         mockup: () => `
             <div class="guide-mock-panel guide-mock-event">
                 <div class="guide-mock-title m-bad">⚠ BREAKING</div>
@@ -164,6 +165,7 @@ export class HowToPlayScreen {
         this.el = null;
         this.currentStep = 0;
         this.fromAutoShow = false;
+        this.returnScreen = 'title';
     }
 
     render() {
@@ -253,7 +255,7 @@ export class HowToPlayScreen {
         if (skipped && this.fromAutoShow) {
             this.app.showToast('Guide skipped — find it on the title screen', 'info', 2500);
         }
-        this.app.showScreen('title');
+        this.app.showScreen(this.returnScreen);
     }
 
     mount() {
@@ -262,6 +264,7 @@ export class HowToPlayScreen {
 
     unmount() {
         this.fromAutoShow = false;
+        this.returnScreen = 'title';
         this.currentStep = 0;
     }
 }
